@@ -1,126 +1,289 @@
-# Vytal — CRM Health Doctor
+# Vytal — Open-Source Headless CRM
 
-> Connect any CRM org and get a live AI-powered health dashboard in seconds.
+> A fully-typed, API-first CRM platform with AI-powered health monitoring. Self-host it, extend it, or use it as the backend for any frontend.
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Platform](https://img.shields.io/badge/platform-D365%20%7C%20Salesforce%20%7C%20Siebel-informational)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue)
 ![AI](https://img.shields.io/badge/AI-Claude%20API-orange)
+![DB](https://img.shields.io/badge/database-Neon%20%2F%20Postgres-teal)
 
-Vytal is an open-source, CRM-agnostic health monitoring dashboard for developers and architects. Connect your org once — get scored, prioritised, AI-interpreted diagnostics across schema hygiene, automation complexity, data quality, security posture, and adoption health.
+Vytal started as a CRM health monitor. It's now a complete open-source CRM platform: Sales pipeline, Marketing campaigns, Customer Service, and the original AI-powered Health Doctor — all backed by a headless REST API that any frontend can consume.
 
-**No vendor lock-in. No agents to install. Just connect and diagnose.**
-
----
-
-## Why Vytal?
-
-Every major CRM platform ships its own health check tool — but they're siloed, CLI-only, or hidden behind expensive licenses. Developers managing multi-platform estates have no unified view.
-
-Vytal solves this with:
-- A **standard health data model** that all connectors map to
-- A **platform-agnostic scoring engine** (0–100 per dimension)
-- **Claude API** interpreting scores into prioritised, actionable findings
-- A **live React dashboard** — no backend needed, credentials stay in-browser
+**No vendor lock-in. Your data stays in your own Neon database.**
 
 ---
 
-## Supported Platforms
+## What's inside
 
-| Platform | Connector | Status |
-|---|---|---|
-| Microsoft Dynamics 365 / Dataverse | `D365Adapter` | ✅ v0.1 |
-| Salesforce | `SalesforceAdapter` | 🔜 v0.2 |
-| Oracle Siebel | `SiebelAdapter` | 🔜 v0.3 |
-| HubSpot | `HubSpotAdapter` | 📋 Planned |
-| Custom / API | `BaseAdapter` | Extend yourself |
-
----
-
-## Health Dimensions
-
-| Dimension | What it measures |
+| Module | Description |
 |---|---|
-| **Schema hygiene** | Unused fields/entities, naming conventions, deprecated objects |
-| **Automation complexity** | Flow nesting depth, circular dependencies, error handling gaps |
-| **Data quality** | Duplicate records, completeness %, stale data patterns |
-| **Security posture** | Over-privileged roles, dormant admin accounts, audit log gaps |
-| **Adoption health** | Active user ratios, feature utilisation, inactive automation |
+| **Sales** | Contacts, drag-and-drop pipeline, deals, activities |
+| **Marketing** | Email/SMS/push campaigns, audience segments, automation sequences |
+| **Service** | Support tickets, SLA tracking, internal notes, conversation threads |
+| **Health Monitor** | AI health scoring across schema, automation, data quality, security, and adoption |
+| **Headless API** | Full REST API (Hono) — consume from any frontend, mobile app, or integration |
 
 ---
 
-## Quick Start
+## Quick start
+
+### Option 1 — Mock mode (no backend required)
 
 ```bash
-# Clone
 git clone https://github.com/hareev/vytal.git
 cd vytal
-
-# Install
 npm install
-
-# Add your Anthropic API key
-cp .env.example .env
-# Edit .env and add VITE_ANTHROPIC_API_KEY=sk-ant-...
-
-# Run
+cp .env.example .env          # VITE_USE_MOCK=true is already set
 npm run dev
 ```
 
-Then open `http://localhost:5173` and connect your first org.
+Open `http://localhost:5173`. You'll land on a pre-loaded workspace (Acme Corp) with 15 contacts, 10 deals, 5 campaigns, 8 tickets, and 2 sequences — all running in-memory.
+
+### Option 2 — Full stack with Neon
+
+```bash
+# 1. Create a Neon project at neon.tech, copy the connection string
+# 2. Configure .env
+cp .env.example .env
+# Fill in:
+#   VITE_ANTHROPIC_API_KEY=sk-ant-...
+#   VITE_USE_MOCK=false
+#   VITE_API_URL=http://localhost:3001
+#   DATABASE_URL=postgresql://...
+#   JWT_SECRET=$(openssl rand -hex 32)
+
+# 3. Push the schema to your database
+npm run db:push
+
+# 4. Run frontend + API together
+npm run dev:all
+```
+
+---
+
+## Environment variables
+
+### Frontend (`VITE_*`)
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `VITE_ANTHROPIC_API_KEY` | For AI diagnosis | — | Anthropic API key |
+| `VITE_USE_MOCK` | No | `true` | Run without a backend using in-memory data |
+| `VITE_API_URL` | No | `http://localhost:3001` | API server URL |
+| `VITE_CLAUDE_MODEL` | No | `claude-sonnet-4-20250514` | Override the Claude model |
+
+### API server
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes (real mode) | Neon PostgreSQL connection string |
+| `JWT_SECRET` | Yes (real mode) | Random string for signing JWTs (`openssl rand -hex 32`) |
+| `PORT` | No | API server port (default: `3001`) |
+| `CORS_ORIGIN` | No | Allowed CORS origin (default: `*`) |
 
 ---
 
 ## Architecture
 
 ```
-src/
-├── lib/
-│   ├── adapters/       # CRM connectors (one file per platform)
-│   │   ├── base.ts     # BaseAdapter interface — implement to add a new CRM
-│   │   ├── d365.ts     # Dynamics 365 / Dataverse adapter
-│   │   └── salesforce.ts
-│   ├── scoring/
-│   │   ├── engine.ts   # Platform-agnostic health scoring (0–100)
-│   │   └── rules/      # Per-dimension rule sets
-│   └── ai/
-│       └── triage.ts   # Claude API integration — score → diagnosis
-├── components/
-│   ├── dashboard/      # ScoreRing, DimensionBars, IssueList, AIPanel
-│   ├── connectors/     # ConnectModal, OrgPicker
-│   └── shared/         # Badge, MetricCard, Trend
-├── types/
-│   └── health.ts       # HealthPayload, Issue, Diagnosis types
-└── pages/
-    └── Dashboard.tsx   # Main view
+vytal/
+├── server/                        # Headless REST API
+│   ├── db/
+│   │   ├── schema.ts              # Drizzle ORM schema (13 tables)
+│   │   └── index.ts               # Neon connection
+│   ├── middleware/
+│   │   └── auth.ts                # JWT verification
+│   └── routes/
+│       ├── auth.ts                # POST /register, /login, GET /me
+│       ├── contacts.ts            # CRUD + search + pagination
+│       ├── deals.ts               # CRUD + pipeline stage moves
+│       ├── pipelines.ts           # Pipelines + stages
+│       ├── campaigns.ts           # CRUD
+│       ├── segments.ts            # CRUD + filter storage
+│       ├── tickets.ts             # CRUD + messages + auto SLA
+│       └── orgs.ts                # Org stats + member management
+│
+└── src/                           # React frontend (reference UI)
+    ├── types/
+    │   ├── auth.ts                # User, Org, UserRole, OrgPlan
+    │   ├── crm.ts                 # Contact, Deal, Pipeline, Stage, Activity
+    │   ├── marketing.ts           # Campaign, Segment, Sequence
+    │   ├── service.ts             # Ticket, TicketMessage, SLAPolicy
+    │   └── health.ts              # RawHealthPayload, ScoredHealthPayload, Issue
+    ├── lib/
+    │   ├── api/
+    │   │   ├── client.ts          # Typed API client (fetch-based)
+    │   │   └── mock.ts            # In-memory mock with seed data
+    │   ├── adapters/              # CRM connectors (health module)
+    │   │   ├── base.ts            # BaseAdapter interface
+    │   │   ├── d365.ts            # Dynamics 365 / Dataverse
+    │   │   └── index.ts           # Registry + factory
+    │   ├── scoring/
+    │   │   └── engine.ts          # Platform-agnostic health scoring
+    │   └── ai/
+    │       └── triage.ts          # Claude API → structured diagnosis
+    ├── hooks/
+    │   ├── useAuthStore.ts        # Login, register, logout, session restore
+    │   ├── useCrmStore.ts         # Contacts, deals, pipelines, activities
+    │   ├── useMarketingStore.ts   # Campaigns, segments, sequences
+    │   ├── useServiceStore.ts     # Tickets + messages
+    │   └── useVytalStore.ts       # Health monitor state
+    ├── components/
+    │   ├── layout/
+    │   │   ├── AppShell.tsx       # Sidebar + outlet layout
+    │   │   └── Sidebar.tsx        # Module nav, org badge, user menu
+    │   └── dashboard/             # Health module panels
+    └── pages/
+        ├── Login.tsx
+        ├── Register.tsx
+        ├── Settings.tsx
+        ├── onboarding/
+        │   └── Onboarding.tsx     # 5-step setup wizard
+        ├── sales/
+        │   ├── Pipeline.tsx       # Drag-and-drop kanban board
+        │   └── Contacts.tsx       # Table + detail side-panel
+        ├── marketing/
+        │   └── Marketing.tsx      # Campaigns / Segments / Sequences tabs
+        ├── service/
+        │   └── Service.tsx        # Ticket queue + SLA panel
+        ├── Connect.tsx            # CRM health connector
+        └── Dashboard.tsx          # Health score dashboard
 ```
 
 ---
 
-## Adding a New CRM Connector
+## API reference
+
+The API server runs on port 3001 and is consumed by the frontend via the Vite proxy (`/api → localhost:3001`). Every resource is scoped to the authenticated organisation.
+
+### Auth
+
+```
+POST /api/auth/register   { orgName, email, name, password }
+POST /api/auth/login      { email, password }
+GET  /api/auth/me
+```
+
+### Core resources
+
+All endpoints require `Authorization: Bearer <token>`.
+
+```
+GET    /api/contacts           ?search=&status=&page=&limit=
+POST   /api/contacts
+PATCH  /api/contacts/:id
+DELETE /api/contacts/:id
+
+GET    /api/deals              ?pipeline_id=&stage_id=&status=
+POST   /api/deals
+PATCH  /api/deals/:id
+
+GET    /api/pipelines
+POST   /api/pipelines
+POST   /api/pipelines/:id/stages
+
+GET    /api/campaigns
+POST   /api/campaigns
+PATCH  /api/campaigns/:id
+DELETE /api/campaigns/:id
+
+GET    /api/segments
+POST   /api/segments
+PATCH  /api/segments/:id
+DELETE /api/segments/:id
+
+GET    /api/tickets            ?status=&priority=&assignee_id=
+POST   /api/tickets            (auto-sets sla_due_at by priority)
+PATCH  /api/tickets/:id
+POST   /api/tickets/:id/messages
+
+GET    /api/orgs               (org + aggregate stats)
+PATCH  /api/orgs
+GET    /api/orgs/members
+POST   /api/orgs/members/invite
+```
+
+---
+
+## Database schema
+
+13 Postgres tables managed with Drizzle ORM:
+
+`organizations` → `users` → `contacts` / `deals` / `activities` / `tickets` / `ticket_messages` / `pipelines` → `pipeline_stages` / `segments` / `campaigns` / `sequences` → `sequence_steps`
+
+All tables include `org_id` for multi-tenancy. Run `npm run db:studio` to browse data via Drizzle Studio.
+
+---
+
+## npm scripts
+
+| Script | What it does |
+|---|---|
+| `npm run dev` | Frontend only (Vite, port 5173) |
+| `npm run dev:api` | API server only (tsx watch, port 3001) |
+| `npm run dev:all` | Both in parallel |
+| `npm run build` | Type-check + Vite production build |
+| `npm run type-check` | `tsc --noEmit` (frontend) |
+| `npm run type-check:api` | `tsc --noEmit` (server) |
+| `npm run db:push` | Push Drizzle schema to Neon |
+| `npm run db:generate` | Generate migration files |
+| `npm run db:studio` | Open Drizzle Studio |
+
+---
+
+## Health Monitor — CRM connector module
+
+The original Vytal capability: connect an external CRM, score its health, and get Claude-powered recommendations.
+
+### Supported platforms
+
+| Platform | Status |
+|---|---|
+| Dynamics 365 / Dataverse | ✅ Implemented |
+| Salesforce | 🔜 Planned |
+| Oracle Siebel | 🔜 Planned |
+| HubSpot | 📋 Planned |
+
+### Health dimensions
+
+| Dimension | Weight | Measures |
+|---|---|---|
+| Schema hygiene | 25% | Unused fields/entities, naming violations, deprecated objects |
+| Automation complexity | 25% | Circular dependencies, nesting depth, missing error handling |
+| Data quality | 20% | Duplicates, incomplete required fields, stale records |
+| Security posture | 20% | Over-privileged roles, dormant admins, audit log gaps |
+| Adoption health | 10% | Active user ratios, feature utilisation |
+
+### Adding a new CRM connector
 
 Implement `BaseAdapter` in `src/lib/adapters/base.ts`:
 
 ```typescript
 export interface BaseAdapter {
-  name: string;
-  connect(credentials: Record<string, string>): Promise<void>;
-  fetchHealthPayload(): Promise<RawHealthPayload>;
+  readonly name: string
+  readonly platform: OrgConnection['platform']
+  connect(credentials: Record<string, string>): Promise<OrgConnection>
+  validateConnection(): Promise<boolean>
+  fetchHealthPayload(): Promise<RawHealthPayload>
+  disconnect?(): Promise<void>
 }
 ```
 
-That's it. The scoring engine and AI layer are fully platform-agnostic — your adapter just needs to return a `RawHealthPayload`.
+Then register it in `src/lib/adapters/index.ts`. The scoring engine and AI layer are fully platform-agnostic.
 
 ---
 
 ## Contributing
 
-PRs welcome. The highest-value contributions right now:
+PRs welcome. Highest-value contributions right now:
 
 1. **Salesforce adapter** — REST + Tooling API, map to `RawHealthPayload`
-2. **New scoring rules** — add rule files under `src/lib/scoring/rules/`
-3. **Dashboard panels** — trend history, org comparison view
+2. **HubSpot adapter** — Private App Token auth, object + engagement APIs
+3. **Scoring rules** — add rules to `src/lib/scoring/engine.ts`
+4. **Sequence engine** — backend scheduler for drip campaign delivery
+5. **Knowledge base module** — articles, categories, public customer portal
 
-Please open an issue first for anything beyond bug fixes.
+Open an issue before starting anything large.
 
 ---
 
@@ -130,4 +293,4 @@ MIT — use it, fork it, build on it.
 
 ---
 
-*Built by [@hareev](https://github.com/hareev) — 18 years in CRM, tired of bad tooling.*
+*Built by [@hareev](https://github.com/hareev)*
