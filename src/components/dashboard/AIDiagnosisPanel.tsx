@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { AIDiagnosis, ScoredHealthPayload } from '@/types/health'
 
 // ─── AI Diagnosis Panel ───────────────────────────────────────────────────────
@@ -114,7 +115,7 @@ export function OrgSnapshot({ scored }: SnapProps) {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: '14px' }}>
       <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{title}</div>
