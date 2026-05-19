@@ -49,7 +49,7 @@ function IconSettings() {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    label: 'Health Monitor',
+    label: 'Onboarding & Scan',
     path: '/app/health',
     icon: IconHealth,
     module: 'health',
@@ -59,21 +59,12 @@ const NAV_ITEMS: NavItem[] = [
     path: '/app/sales',
     icon: IconSales,
     module: 'sales',
-    children: [
-      { label: 'Pipeline', path: '/app/sales' },
-      { label: 'Contacts', path: '/app/sales/contacts' },
-    ],
   },
   {
     label: 'Marketing',
     path: '/app/marketing',
     icon: IconMarketing,
     module: 'marketing',
-    children: [
-      { label: 'Campaigns', path: '/app/marketing' },
-      { label: 'Segments', path: '/app/marketing/segments' },
-      { label: 'Sequences', path: '/app/marketing/sequences' },
-    ],
   },
   {
     label: 'Service',

@@ -16,9 +16,8 @@ import { Onboarding } from '@/pages/onboarding/Onboarding'
 import { Dashboard } from '@/pages/Dashboard'
 import { Connect } from '@/pages/Connect'
 
-// App pages — new modules
+// App pages — module API explorers
 import { Pipeline } from '@/pages/sales/Pipeline'
-import { Contacts } from '@/pages/sales/Contacts'
 import { Marketing } from '@/pages/marketing/Marketing'
 import { Service } from '@/pages/service/Service'
 import { Settings } from '@/pages/Settings'
@@ -55,10 +54,7 @@ export default function App() {
           <Route path="health" element={<Dashboard />} />
           <Route path="health/connect" element={<Connect />} />
           <Route path="sales" element={<Pipeline />} />
-          <Route path="sales/contacts" element={<Contacts />} />
           <Route path="marketing" element={<Marketing />} />
-          <Route path="marketing/segments" element={<Marketing />} />
-          <Route path="marketing/sequences" element={<Marketing />} />
           <Route path="service" element={<Service />} />
           <Route path="settings" element={<Settings />} />
         </Route>

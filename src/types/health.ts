@@ -1,6 +1,6 @@
 // ─── Platform identity ────────────────────────────────────────────────────────
 
-export type CRMPlatform = 'dynamics365' | 'salesforce' | 'siebel' | 'hubspot' | 'custom'
+export type CRMPlatform = 'dynamics365' | 'salesforce' | 'hubspot' | 'zoho' | 'sugarcrm' | 'pega' | 'freshsales' | 'pipedrive' | 'custom'
 
 export interface OrgConnection {
   id: string

@@ -6,9 +6,13 @@ import type { OrgConnection } from '@/types/health'
 
 const PLATFORMS: Array<{ platform: OrgConnection['platform']; label: string; available: boolean }> = [
   { platform: 'dynamics365', label: 'Dynamics 365 / Dataverse', available: true },
-  { platform: 'salesforce', label: 'Salesforce', available: false },
-  { platform: 'siebel', label: 'Oracle Siebel', available: false },
-  { platform: 'hubspot', label: 'HubSpot', available: false },
+  { platform: 'salesforce',  label: 'Salesforce',               available: false },
+  { platform: 'hubspot',     label: 'HubSpot',                  available: false },
+  { platform: 'zoho',        label: 'Zoho CRM',                 available: false },
+  { platform: 'sugarcrm',    label: 'SugarCRM',                 available: false },
+  { platform: 'pega',        label: 'Pega CRM',                 available: false },
+  { platform: 'freshsales',  label: 'Freshsales',               available: false },
+  { platform: 'pipedrive',   label: 'Pipedrive',                available: false },
 ]
 
 export function Connect() {
