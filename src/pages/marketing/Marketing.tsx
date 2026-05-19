@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useMarketingStore } from '@/hooks/useMarketingStore'
 import type { Campaign, CampaignStatus, CampaignType, Segment, SegmentFilter, Sequence, SequenceStep } from '@/types/marketing'
+import { generateSegmentFromPrompt } from '@/lib/ai/autoSegment'
 
 type Tab = 'campaigns' | 'segments' | 'sequences'
 
@@ -123,6 +124,7 @@ function CampaignModal({ campaign, segments, onClose, onSave }: CampaignModalPro
 // ── Segment modal ─────────────────────────────────────────────────────────────
 interface SegmentModalProps {
   segment: Segment | null
+  prefill?: { name: string; filters: SegmentFilter[] } | null
   onClose: () => void
   onSave: (data: Partial<Segment>) => void
 }
@@ -131,9 +133,9 @@ const FIELD_OPTIONS = ['Status', 'Company', 'Tags', 'Created date']
 const OPERATOR_OPTIONS: SegmentFilter['operator'][] = ['is', 'is_not', 'contains', 'gt', 'lt']
 const OPERATOR_LABELS: Record<SegmentFilter['operator'], string> = { is: 'is', is_not: 'is not', contains: 'contains', gt: '>', lt: '<' }
 
-function SegmentModal({ segment, onClose, onSave }: SegmentModalProps) {
-  const [name, setName] = useState(segment?.name ?? '')
-  const [filters, setFilters] = useState<SegmentFilter[]>(segment?.filters ?? [{ field: 'Status', operator: 'is', value: '' }])
+function SegmentModal({ segment, prefill, onClose, onSave }: SegmentModalProps) {
+  const [name, setName] = useState(segment?.name ?? prefill?.name ?? '')
+  const [filters, setFilters] = useState<SegmentFilter[]>(segment?.filters ?? prefill?.filters ?? [{ field: 'Status', operator: 'is', value: '' }])
 
   function addFilter() {
     setFilters(prev => [...prev, { field: 'Status', operator: 'is', value: '' }])
@@ -252,6 +254,102 @@ function SequenceModal({ onClose, onSave }: SequenceModalProps) {
   )
 }
 
+// ── AI Segment modal ──────────────────────────────────────────────────────────
+interface AISegmentModalProps {
+  onClose: () => void
+  onApply: (name: string, filters: SegmentFilter[]) => void
+}
+
+function AISegmentModal({ onClose, onApply }: AISegmentModalProps) {
+  const [promptText, setPromptText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const hasApiKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
+
+  async function handleSubmit() {
+    if (!promptText.trim()) return
+    if (!hasApiKey) {
+      setError('Configure API key to enable AI features')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await generateSegmentFromPrompt(promptText.trim())
+      onApply(result.name, result.filters)
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate segment')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+    >
+      <div style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '480px', border: '0.5px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px', fontWeight: 600 }}>AI Segment</span>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--accent-text)', background: 'var(--accent-bg)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>✦ AI</span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '18px', color: 'var(--text-tertiary)', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
+          Describe your target audience in plain language and AI will generate the segment filters.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, marginBottom: '4px', color: 'var(--text-secondary)' }}>Describe your audience</label>
+            <textarea
+              value={promptText}
+              onChange={e => setPromptText(e.target.value)}
+              placeholder="e.g. enterprise accounts in Europe that haven't engaged in 60 days"
+              rows={3}
+              style={{ ...inputStyle, resize: 'vertical' }}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit() }}
+            />
+            <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Tip: Press ⌘+Enter to generate</div>
+          </div>
+
+          {error && (
+            <div style={{ fontSize: '11px', color: 'var(--danger-text)', background: 'var(--danger-bg)', padding: '7px 10px', borderRadius: '6px' }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={onClose} style={{ flex: 1, padding: '9px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'transparent', fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !promptText.trim()}
+              style={{
+                flex: 2, padding: '9px', borderRadius: '8px', border: 'none',
+                background: 'var(--accent)', fontSize: '13px', fontWeight: 500,
+                cursor: loading || !promptText.trim() ? 'not-allowed' : 'pointer',
+                color: '#fff', opacity: loading || !promptText.trim() ? 0.6 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              }}
+            >
+              {loading
+                ? <><span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Generating…</>
+                : <>✦ Generate segment</>
+              }
+            </button>
+          </div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    </div>
+  )
+}
+
 // ── Main marketing page ───────────────────────────────────────────────────────
 export function Marketing() {
   const campaigns = useMarketingStore(s => s.campaigns)
@@ -270,6 +368,8 @@ export function Marketing() {
 
   const [campaignModal, setCampaignModal] = useState<Campaign | null | 'new'>(null)
   const [segmentModal, setSegmentModal] = useState<Segment | null | 'new'>(null)
+  const [aiSegmentModal, setAiSegmentModal] = useState(false)
+  const [aiSegmentPrefill, setAiSegmentPrefill] = useState<{ name: string; filters: SegmentFilter[] } | null>(null)
   const [sequenceModal, setSequenceModal] = useState(false)
   const [expandedSequence, setExpandedSequence] = useState<string | null>(null)
 
@@ -316,9 +416,17 @@ export function Marketing() {
             </button>
           )}
           {tab === 'segments' && (
-            <button onClick={() => setSegmentModal('new')} style={{ padding: '8px 14px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
-              + New segment
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setAiSegmentModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 14px', borderRadius: '8px', border: '0.5px solid var(--accent)', background: 'var(--accent-bg)', color: 'var(--accent-text)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+              >
+                ✦ AI Segment
+              </button>
+              <button onClick={() => { setAiSegmentPrefill(null); setSegmentModal('new') }} style={{ padding: '8px 14px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
+                + New segment
+              </button>
+            </div>
           )}
           {tab === 'sequences' && (
             <button onClick={() => setSequenceModal(true)} style={{ padding: '8px 14px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
@@ -513,8 +621,19 @@ export function Marketing() {
       {segmentModal !== null && (
         <SegmentModal
           segment={segmentModal === 'new' ? null : segmentModal}
-          onClose={() => setSegmentModal(null)}
+          prefill={segmentModal === 'new' ? aiSegmentPrefill : null}
+          onClose={() => { setSegmentModal(null); setAiSegmentPrefill(null) }}
           onSave={data => createSegment(data as Omit<Segment, 'id' | 'orgId' | 'createdAt' | 'updatedAt'>)}
+        />
+      )}
+
+      {aiSegmentModal && (
+        <AISegmentModal
+          onClose={() => setAiSegmentModal(false)}
+          onApply={(name, filters) => {
+            setAiSegmentPrefill({ name, filters })
+            setSegmentModal('new')
+          }}
         />
       )}
 

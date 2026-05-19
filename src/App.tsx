@@ -21,6 +21,7 @@ import { Pipeline } from '@/pages/sales/Pipeline'
 import { Contacts } from '@/pages/sales/Contacts'
 import { Marketing } from '@/pages/marketing/Marketing'
 import { Service } from '@/pages/service/Service'
+import { KnowledgeBase } from '@/pages/knowledge/KnowledgeBase'
 import { Settings } from '@/pages/Settings'
 
 function RootRedirect() {
@@ -60,6 +61,8 @@ export default function App() {
           <Route path="marketing/segments" element={<Marketing />} />
           <Route path="marketing/sequences" element={<Marketing />} />
           <Route path="service" element={<Service />} />
+          <Route path="knowledge" element={<KnowledgeBase />} />
+          <Route path="knowledge/:articleId" element={<KnowledgeBase />} />
           <Route path="settings" element={<Settings />} />
         </Route>
 

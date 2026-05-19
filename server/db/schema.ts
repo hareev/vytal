@@ -248,3 +248,90 @@ export const ticket_messages = pgTable('ticket_messages', {
   is_internal: boolean('is_internal').notNull().default(false),
   created_at: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// scan_history — stores each health scan result for trend tracking
+// ---------------------------------------------------------------------------
+export const scan_history = pgTable('scan_history', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  org_id: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  platform: text('platform').notNull(),
+  org_name: text('org_name').notNull(),
+  overall_score: integer('overall_score').notNull(),
+  dimension_scores: jsonb('dimension_scores').notNull(),
+  issue_count: integer('issue_count').notNull().default(0),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// webhooks — outbound event subscriptions per org
+// ---------------------------------------------------------------------------
+export const webhooks = pgTable('webhooks', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  org_id: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  url: text('url').notNull(),
+  events: text('events').array().notNull(),
+  secret: text('secret').notNull(),
+  active: boolean('active').notNull().default(true),
+  description: text('description'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// kb_categories — knowledge base categories
+// ---------------------------------------------------------------------------
+export const kb_categories = pgTable('kb_categories', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  org_id: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  slug: text('slug').notNull(),
+  description: text('description'),
+  position: integer('position').notNull().default(0),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// kb_articles — knowledge base articles
+// ---------------------------------------------------------------------------
+export const kb_articles = pgTable('kb_articles', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  org_id: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  category_id: uuid('category_id').references(() => kb_categories.id, { onDelete: 'set null' }),
+  title: text('title').notNull(),
+  slug: text('slug').notNull(),
+  body: text('body').notNull(),
+  status: text('status', { enum: ['draft', 'published'] }).notNull().default('draft'),
+  author_id: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+  view_count: integer('view_count').notNull().default(0),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// sequence_enrollments — contacts enrolled in drip sequences
+// ---------------------------------------------------------------------------
+export const sequence_enrollments = pgTable('sequence_enrollments', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  org_id: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  sequence_id: uuid('sequence_id')
+    .notNull()
+    .references(() => sequences.id, { onDelete: 'cascade' }),
+  contact_id: uuid('contact_id')
+    .notNull()
+    .references(() => contacts.id, { onDelete: 'cascade' }),
+  current_step: integer('current_step').notNull().default(0),
+  status: text('status', { enum: ['active', 'completed', 'unenrolled'] }).notNull().default('active'),
+  next_send_at: timestamp('next_send_at'),
+  enrolled_at: timestamp('enrolled_at').defaultNow().notNull(),
+  completed_at: timestamp('completed_at'),
+});
