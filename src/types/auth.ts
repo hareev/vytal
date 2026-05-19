@@ -22,6 +22,7 @@ export interface Org {
     marketing: boolean
     service: boolean
     health: boolean
+    knowledge: boolean
   }
   createdAt: Date
 }

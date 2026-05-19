@@ -1,0 +1,59 @@
+version: '3.9'
+
+services:
+  # ── PostgreSQL (local dev only — use Neon in production) ──────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vytal
+      POSTGRES_USER: vytal
+      POSTGRES_PASSWORD: vytal
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vytal']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Vytal API server ──────────────────────────────────────────────────────
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: postgresql://vytal:vytal@db:5432/vytal
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      PORT: 3001
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "node --import tsx/esm server/index.ts"
+
+  # ── Vite dev server (frontend only, optional) ────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - '5173:5173'
+    environment:
+      VITE_USE_MOCK: 'false'
+      VITE_API_URL: http://localhost:3001
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    profiles:
+      - dev
+
+volumes:
+  pgdata:

@@ -2,6 +2,7 @@ import type { Contact, Deal, Pipeline, Stage } from '@/types/crm'
 import type { Campaign, Segment, Sequence, SequenceStep } from '@/types/marketing'
 import type { Ticket, TicketMessage } from '@/types/service'
 import type { User, Org } from '@/types/auth'
+import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
 import type { ListParams, AuthLoginResponse, AuthRegisterResponse, MeResponse } from './client'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -32,7 +33,7 @@ const DEMO_ORG: Org = {
   name: 'Acme Corp',
   slug: 'acme',
   plan: 'pro',
-  modules: { sales: true, marketing: true, service: true, health: true },
+  modules: { sales: true, marketing: true, service: true, health: true, knowledge: true },
   createdAt: daysAgo(180),
 }
 
@@ -332,6 +333,111 @@ function applyListParams<T>(items: T[], params?: ListParams): T[] {
   return result.slice(start, start + limit)
 }
 
+// ─── Seed: KB Categories ──────────────────────────────────────────────────────
+
+const kbCategoryMap = new Map<string, KbCategory>([
+  ['kbc-01', {
+    id: 'kbc-01', orgId: DEMO_ORG_ID, name: 'Getting Started',
+    slug: 'getting-started', description: 'Learn the basics and get up and running quickly.',
+    position: 0, articleCount: 4, createdAt: daysAgo(60),
+  }],
+  ['kbc-02', {
+    id: 'kbc-02', orgId: DEMO_ORG_ID, name: 'Product Guide',
+    slug: 'product-guide', description: 'In-depth documentation for every feature.',
+    position: 1, articleCount: 3, createdAt: daysAgo(55),
+  }],
+  ['kbc-03', {
+    id: 'kbc-03', orgId: DEMO_ORG_ID, name: 'Troubleshooting',
+    slug: 'troubleshooting', description: 'Solutions to common issues and errors.',
+    position: 2, articleCount: 3, createdAt: daysAgo(50),
+  }],
+])
+
+// ─── Seed: KB Articles ────────────────────────────────────────────────────────
+
+const kbArticleMap = new Map<string, KbArticle>([
+  ['kba-01', {
+    id: 'kba-01', orgId: DEMO_ORG_ID, categoryId: 'kbc-01',
+    title: 'Welcome to Vytal',
+    slug: 'welcome-to-vytal',
+    body: 'Welcome to Vytal — the all-in-one CRM platform.\n\nThis guide walks you through the core modules:\n\n1. Sales — manage contacts, deals, and pipelines\n2. Marketing — run campaigns and sequences\n3. Service — handle customer support tickets\n4. Knowledge Base — publish help articles\n\nStart by visiting the Dashboard to see your overview.',
+    status: 'published', authorId: DEMO_USER_ID, viewCount: 342,
+    createdAt: daysAgo(58), updatedAt: daysAgo(10),
+  }],
+  ['kba-02', {
+    id: 'kba-02', orgId: DEMO_ORG_ID, categoryId: 'kbc-01',
+    title: 'Setting Up Your Account',
+    slug: 'setting-up-your-account',
+    body: 'Follow these steps to set up your Vytal account:\n\n1. Complete your organization profile in Settings\n2. Invite team members from the Members tab\n3. Connect your email provider\n4. Import your existing contacts via CSV\n\nOnce setup is complete, you are ready to start managing your customers.',
+    status: 'published', authorId: DEMO_USER_ID, viewCount: 215,
+    createdAt: daysAgo(55), updatedAt: daysAgo(8),
+  }],
+  ['kba-03', {
+    id: 'kba-03', orgId: DEMO_ORG_ID, categoryId: 'kbc-01',
+    title: 'Importing Contacts from CSV',
+    slug: 'importing-contacts-from-csv',
+    body: 'You can bulk import contacts using a CSV file.\n\nRequired columns:\n- first_name\n- last_name\n- email\n\nOptional columns: phone, company, status, tags\n\nTo import:\n1. Go to Sales > Contacts\n2. Click "Import CSV"\n3. Map columns to Vytal fields\n4. Confirm and import\n\nDuplicate emails are automatically merged.',
+    status: 'published', authorId: DEMO_USER_ID, viewCount: 178,
+    createdAt: daysAgo(50), updatedAt: daysAgo(5),
+  }],
+  ['kba-04', {
+    id: 'kba-04', orgId: DEMO_ORG_ID, categoryId: 'kbc-01',
+    title: 'Connecting Your Email',
+    slug: 'connecting-your-email',
+    body: 'Draft: Detailed steps for connecting Gmail, Outlook, and custom SMTP providers. Coming soon.',
+    status: 'draft', authorId: DEMO_USER_ID, viewCount: 0,
+    createdAt: daysAgo(5), updatedAt: daysAgo(5),
+  }],
+  ['kba-05', {
+    id: 'kba-05', orgId: DEMO_ORG_ID, categoryId: 'kbc-02',
+    title: 'Managing Deals and Pipelines',
+    slug: 'managing-deals-and-pipelines',
+    body: 'Pipelines in Vytal represent your sales process.\n\nEach pipeline has stages. Deals move through stages as they progress.\n\nTo create a deal:\n1. Go to Sales > Pipeline\n2. Click "+ New Deal" on any stage\n3. Fill in title, value, and close date\n\nDeals can be marked as Won or Lost at any time using the status dropdown.',
+    status: 'published', authorId: DEMO_USER_ID, viewCount: 130,
+    createdAt: daysAgo(45), updatedAt: daysAgo(3),
+  }],
+  ['kba-06', {
+    id: 'kba-06', orgId: DEMO_ORG_ID, categoryId: 'kbc-02',
+    title: 'Running Email Campaigns',
+    slug: 'running-email-campaigns',
+    body: 'Email campaigns let you send bulk messages to contact segments.\n\nSteps:\n1. Create a segment to define your audience\n2. Go to Marketing > Campaigns\n3. Click "+ New Campaign"\n4. Choose type: Email, SMS, or Push\n5. Write your subject and body\n6. Schedule or send immediately\n\nYou can track opens, clicks, and bounces in the campaign stats panel.',
+    status: 'published', authorId: DEMO_USER_ID, viewCount: 97,
+    createdAt: daysAgo(40), updatedAt: daysAgo(2),
+  }],
+  ['kba-07', {
+    id: 'kba-07', orgId: DEMO_ORG_ID, categoryId: 'kbc-02',
+    title: 'Using Automation Sequences',
+    slug: 'using-automation-sequences',
+    body: 'Draft: How to build multi-step drip sequences with wait steps and conditions.',
+    status: 'draft', authorId: DEMO_USER_ID, viewCount: 0,
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  }],
+  ['kba-08', {
+    id: 'kba-08', orgId: DEMO_ORG_ID, categoryId: 'kbc-03',
+    title: 'Fixing CSV Import Errors',
+    slug: 'fixing-csv-import-errors',
+    body: 'Common CSV import errors and how to fix them:\n\n**Missing required columns**\nEnsure first_name, last_name, and email columns are present.\n\n**Invalid email format**\nCheck that all email values follow the format user@domain.com.\n\n**File too large**\nFiles larger than 10MB may time out. Split your file into smaller batches.\n\n**Encoding issues**\nSave your CSV as UTF-8 to avoid special character problems.',
+    status: 'published', authorId: DEMO_USER_ID, viewCount: 88,
+    createdAt: daysAgo(38), updatedAt: daysAgo(4),
+  }],
+  ['kba-09', {
+    id: 'kba-09', orgId: DEMO_ORG_ID, categoryId: 'kbc-03',
+    title: 'API Rate Limit Troubleshooting',
+    slug: 'api-rate-limit-troubleshooting',
+    body: 'If you are receiving 429 Too Many Requests errors:\n\n1. Check your request rate — the API allows 100 requests per minute per org\n2. Implement exponential backoff in your integration\n3. Use batch endpoints where available\n4. Cache responses to reduce redundant calls\n\nContact support if you need a higher rate limit for your plan.',
+    status: 'published', authorId: DEMO_USER_ID, viewCount: 64,
+    createdAt: daysAgo(30), updatedAt: daysAgo(2),
+  }],
+  ['kba-10', {
+    id: 'kba-10', orgId: DEMO_ORG_ID, categoryId: 'kbc-03',
+    title: 'Password Reset Issues',
+    slug: 'password-reset-issues',
+    body: 'Not receiving your password reset email?\n\n1. Check your spam or junk folder\n2. Ensure you entered the correct email address\n3. Wait up to 5 minutes for delivery\n4. Try the "Resend" button on the reset page\n\nIf the issue persists, contact your organization admin or reach out to support.',
+    status: 'published', authorId: DEMO_USER_ID, viewCount: 55,
+    createdAt: daysAgo(25), updatedAt: daysAgo(1),
+  }],
+])
+
 // ─── MockApiClient ────────────────────────────────────────────────────────────
 
 class MockApiClient {
@@ -515,6 +621,111 @@ class MockApiClient {
       const messages = [...(ticket.messages ?? []), msg]
       ticketMap.set(id, { ...ticket, messages, updatedAt: new Date() })
       return resolve(msg)
+    },
+  }
+
+  // ─── Knowledge Base ──────────────────────────────────────────────────────
+
+  kb = {
+    categories: {
+      list: (): Promise<KbCategory[]> => {
+        const cats = Array.from(kbCategoryMap.values())
+        // Recompute article counts from the live article map
+        return resolve(cats.map((cat) => ({
+          ...cat,
+          articleCount: Array.from(kbArticleMap.values()).filter((a) => a.categoryId === cat.id).length,
+        })))
+      },
+
+      create: (data: Omit<KbCategory, 'id' | 'orgId' | 'createdAt' | 'articleCount'>): Promise<KbCategory> => {
+        const cat: KbCategory = {
+          ...data,
+          orgId: DEMO_ORG_ID,
+          id: uid(),
+          articleCount: 0,
+          createdAt: new Date(),
+        }
+        kbCategoryMap.set(cat.id, cat)
+        return resolve(cat)
+      },
+
+      update: (id: string, data: Partial<Omit<KbCategory, 'id' | 'orgId' | 'createdAt' | 'articleCount'>>): Promise<KbCategory> => {
+        const existing = kbCategoryMap.get(id)
+        if (!existing) return Promise.reject(new Error(`Category ${id} not found`))
+        const updated: KbCategory = { ...existing, ...data }
+        kbCategoryMap.set(id, updated)
+        return resolve(updated)
+      },
+
+      delete: (id: string): Promise<void> => {
+        const hasPublished = Array.from(kbArticleMap.values()).some(
+          (a) => a.categoryId === id && a.status === 'published',
+        )
+        if (hasPublished) return Promise.reject(new Error('Cannot delete category with published articles'))
+        kbCategoryMap.delete(id)
+        return resolve(undefined)
+      },
+    },
+
+    articles: {
+      list: (params?: ListParams & { categoryId?: string; status?: ArticleStatus }): Promise<KbArticle[]> => {
+        let articles = Array.from(kbArticleMap.values())
+        if (params?.categoryId) {
+          articles = articles.filter((a) => a.categoryId === params.categoryId)
+        }
+        if (params?.status) {
+          articles = articles.filter((a) => a.status === params.status)
+        }
+        if (params?.search) {
+          const q = params.search.toLowerCase()
+          articles = articles.filter((a) => a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q))
+        }
+        return resolve(articles)
+      },
+
+      get: (id: string): Promise<KbArticle> => {
+        const article = kbArticleMap.get(id)
+        if (!article) return Promise.reject(new Error(`Article ${id} not found`))
+        // Increment view count
+        const updated = { ...article, viewCount: article.viewCount + 1 }
+        kbArticleMap.set(id, updated)
+        return resolve(updated)
+      },
+
+      create: (data: Omit<KbArticle, 'id' | 'orgId' | 'createdAt' | 'updatedAt' | 'viewCount'>): Promise<KbArticle> => {
+        const now = new Date()
+        const article: KbArticle = {
+          ...data,
+          orgId: DEMO_ORG_ID,
+          id: uid(),
+          viewCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        }
+        kbArticleMap.set(article.id, article)
+        return resolve(article)
+      },
+
+      update: (id: string, data: Partial<Omit<KbArticle, 'id' | 'orgId' | 'createdAt' | 'updatedAt' | 'viewCount'>>): Promise<KbArticle> => {
+        const existing = kbArticleMap.get(id)
+        if (!existing) return Promise.reject(new Error(`Article ${id} not found`))
+        const updated: KbArticle = { ...existing, ...data, updatedAt: new Date() }
+        kbArticleMap.set(id, updated)
+        return resolve(updated)
+      },
+
+      delete: (id: string): Promise<void> => {
+        kbArticleMap.delete(id)
+        return resolve(undefined)
+      },
+
+      publish: (id: string): Promise<KbArticle> => {
+        const existing = kbArticleMap.get(id)
+        if (!existing) return Promise.reject(new Error(`Article ${id} not found`))
+        const updated: KbArticle = { ...existing, status: 'published', updatedAt: new Date() }
+        kbArticleMap.set(id, updated)
+        return resolve(updated)
+      },
     },
   }
 

@@ -38,6 +38,14 @@ function IconService() {
     </svg>
   )
 }
+function IconKnowledge() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
+      <path d="M6 6h4M6 9h4M6 12h2" />
+    </svg>
+  )
+}
 function IconSettings() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -80,6 +88,12 @@ const NAV_ITEMS: NavItem[] = [
     path: '/app/service',
     icon: IconService,
     module: 'service',
+  },
+  {
+    label: 'Knowledge Base',
+    path: '/app/knowledge',
+    icon: IconKnowledge,
+    module: 'knowledge',
   },
 ]
 

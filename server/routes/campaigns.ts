@@ -56,7 +56,11 @@ router.post('/', zValidator('json', createCampaignSchema), async (c) => {
 
   const [campaign] = await db
     .insert(schema.campaigns)
-    .values({ ...body, org_id: auth.orgId })
+    .values({
+      ...body,
+      org_id: auth.orgId,
+      scheduled_at: body.scheduled_at ? new Date(body.scheduled_at) : undefined,
+    })
     .returning();
 
   return c.json(campaign, 201);
@@ -102,7 +106,11 @@ router.patch('/:id', zValidator('json', updateCampaignSchema), async (c) => {
 
   const [campaign] = await db
     .update(schema.campaigns)
-    .set({ ...body, updated_at: new Date() })
+    .set({
+      ...body,
+      updated_at: new Date(),
+      scheduled_at: body.scheduled_at ? new Date(body.scheduled_at) : undefined,
+    })
     .where(and(eq(schema.campaigns.id, id), eq(schema.campaigns.org_id, auth.orgId)))
     .returning();
 

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import type { DragEvent, CSSProperties } from 'react'
 import { useCrmStore } from '@/hooks/useCrmStore'
-import type { Deal, Stage, Contact } from '@/types/crm'
+import type { Deal, Stage, Contact, Activity } from '@/types/crm'
+import { analyzeDeal } from '@/lib/ai/dealIntelligence'
+import type { DealIntelligence } from '@/lib/ai/dealIntelligence'
 
 const fmt = (v: number, currency = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v)
@@ -21,49 +23,194 @@ function StatusBadge({ status }: { status: Deal['status'] }) {
   )
 }
 
+// ── AI Intel overlay ──────────────────────────────────────────────────────────
+interface DealIntelOverlayProps {
+  intel: DealIntelligence | null
+  loading: boolean
+  error: string | null
+  onClose: () => void
+}
+
+function DealIntelOverlay({ intel, loading, error, onClose }: DealIntelOverlayProps) {
+  const riskColor: Record<'low' | 'medium' | 'high', string> = {
+    low: 'var(--success-text)',
+    medium: 'var(--warning-text)',
+    high: 'var(--danger-text)',
+  }
+  const riskBg: Record<'low' | 'medium' | 'high', string> = {
+    low: 'var(--success-bg)',
+    medium: 'var(--warning-bg)',
+    high: 'var(--danger-bg)',
+  }
+
+  return (
+    <div
+      style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        background: 'var(--bg-card)',
+        border: '0.5px solid var(--accent)',
+        borderRadius: '10px',
+        padding: '10px 12px',
+        zIndex: 10,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>✦ AI Intel</span>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', fontSize: '14px', color: 'var(--text-tertiary)', cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}
+        >
+          ×
+        </button>
+      </div>
+
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
+          <div style={{ width: '14px', height: '14px', border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Analyzing…</span>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ fontSize: '11px', color: 'var(--danger-text)', background: 'var(--danger-bg)', padding: '6px 8px', borderRadius: '6px' }}>
+          {error}
+        </div>
+      )}
+
+      {intel && !loading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ flex: 1, height: '6px', borderRadius: '3px', background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${intel.closeProbability}%`, background: 'var(--accent)', borderRadius: '3px', transition: 'width 0.5s ease' }} />
+            </div>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-text)', minWidth: '32px', textAlign: 'right' }}>{intel.closeProbability}%</span>
+            <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', background: riskBg[intel.riskLevel], color: riskColor[intel.riskLevel], textTransform: 'uppercase' }}>
+              {intel.riskLevel}
+            </span>
+          </div>
+
+          <ul style={{ margin: 0, padding: '0 0 0 14px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            {intel.signals.map((sig, i) => (
+              <li key={i} style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{sig}</li>
+            ))}
+          </ul>
+
+          <div style={{ fontSize: '11px', color: 'var(--text-primary)', background: 'var(--accent-bg)', padding: '7px 8px', borderRadius: '6px', lineHeight: 1.5, borderLeft: '2px solid var(--accent)' }}>
+            {intel.recommendation}
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
+}
+
 // ── Deal card ─────────────────────────────────────────────────────────────────
 interface DealCardProps {
   deal: Deal
   contacts: Contact[]
+  activities: Activity[]
   onClick: () => void
   onDragStart: (e: DragEvent) => void
 }
 
-function DealCard({ deal, contacts, onClick, onDragStart }: DealCardProps) {
-  const contact = contacts.find(c => c.id === deal.contactId)
+function DealCard({ deal, contacts, activities, onClick, onDragStart }: DealCardProps) {
+  const contact = contacts.find(c => c.id === deal.contactId) ?? null
   const contactName = contact ? `${contact.firstName} ${contact.lastName}` : null
+  const [showIntel, setShowIntel] = useState(false)
+  const [intel, setIntel] = useState<DealIntelligence | null>(null)
+  const [intelLoading, setIntelLoading] = useState(false)
+  const [intelError, setIntelError] = useState<string | null>(null)
+  const hasApiKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
+
+  async function handleAiIntel(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!hasApiKey) {
+      setShowIntel(true)
+      setIntelError('Configure API key to enable AI features')
+      return
+    }
+    setShowIntel(true)
+    if (intel) return  // cached
+    setIntelLoading(true)
+    setIntelError(null)
+    try {
+      const dealActivities = activities.filter(a => a.dealId === deal.id)
+      const result = await analyzeDeal(deal, contact, dealActivities)
+      setIntel(result)
+    } catch (err) {
+      setIntelError(err instanceof Error ? err.message : 'Failed to analyze deal')
+    } finally {
+      setIntelLoading(false)
+    }
+  }
 
   return (
     <div
-      draggable
-      onDragStart={onDragStart}
+      style={{ position: 'relative' }}
       onClick={onClick}
-      style={{
-        background: 'var(--bg-card)',
-        border: '0.5px solid var(--border)',
-        borderRadius: '10px',
-        padding: '12px',
-        cursor: 'grab',
-        userSelect: 'none',
-        transition: 'box-shadow 0.15s',
-      }}
-      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
     >
-      <div style={{ fontWeight: 500, fontSize: '13px', marginBottom: '6px', color: 'var(--text-primary)', lineHeight: 1.3 }}>{deal.title}</div>
-      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--accent-text)', marginBottom: '8px' }}>{fmt(deal.value, deal.currency)}</div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-          {contactName && <span>{contactName}</span>}
-          {deal.closeDate && (
-            <span style={{ marginLeft: contactName ? '6px' : 0 }}>
-              {contactName ? '· ' : ''}
-              {new Date(deal.closeDate).toLocaleDateString()}
-            </span>
-          )}
+      <div
+        draggable
+        onDragStart={onDragStart}
+        style={{
+          background: 'var(--bg-card)',
+          border: '0.5px solid var(--border)',
+          borderRadius: '10px',
+          padding: '12px',
+          cursor: 'grab',
+          userSelect: 'none',
+          transition: 'box-shadow 0.15s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
+      >
+        <div style={{ fontWeight: 500, fontSize: '13px', marginBottom: '6px', color: 'var(--text-primary)', lineHeight: 1.3 }}>{deal.title}</div>
+        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--accent-text)', marginBottom: '8px' }}>{fmt(deal.value, deal.currency)}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+            {contactName && <span>{contactName}</span>}
+            {deal.closeDate && (
+              <span style={{ marginLeft: contactName ? '6px' : 0 }}>
+                {contactName ? '· ' : ''}
+                {new Date(deal.closeDate).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              onClick={handleAiIntel}
+              title="AI deal intelligence"
+              style={{
+                background: 'none',
+                border: '0.5px solid var(--accent)',
+                borderRadius: '5px',
+                padding: '2px 5px',
+                fontSize: '11px',
+                color: 'var(--accent-text)',
+                cursor: 'pointer',
+                lineHeight: 1,
+                fontWeight: 600,
+              }}
+            >
+              ✦
+            </button>
+            <StatusBadge status={deal.status} />
+          </div>
         </div>
-        <StatusBadge status={deal.status} />
       </div>
+
+      {showIntel && (
+        <DealIntelOverlay
+          intel={intel}
+          loading={intelLoading}
+          error={intelError}
+          onClose={() => setShowIntel(false)}
+        />
+      )}
     </div>
   )
 }
@@ -162,6 +309,7 @@ export function Pipeline() {
   const deals = useCrmStore(s => s.deals)
   const pipelines = useCrmStore(s => s.pipelines)
   const contacts = useCrmStore(s => s.contacts)
+  const activities = useCrmStore(s => s.activities)
   const loadDeals = useCrmStore(s => s.loadDeals)
   const loadPipelines = useCrmStore(s => s.loadPipelines)
   const loadContacts = useCrmStore(s => s.loadContacts)
@@ -302,6 +450,7 @@ export function Pipeline() {
                     key={deal.id}
                     deal={deal}
                     contacts={contacts}
+                    activities={activities}
                     onClick={() => setModalDeal(deal)}
                     onDragStart={e => handleDragStart(e, deal.id)}
                   />

@@ -2,6 +2,7 @@ import type { Contact, Deal, Pipeline, Stage } from '@/types/crm'
 import type { Campaign, Segment, Sequence, SequenceStep } from '@/types/marketing'
 import type { Ticket, TicketMessage } from '@/types/service'
 import type { User, Org } from '@/types/auth'
+import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
 
 // ─── Request / Response shapes ────────────────────────────────────────────────
 
@@ -195,6 +196,49 @@ export class ApiClient {
 
     members: (): Promise<User[]> =>
       this.request<User[]>('GET', '/orgs/me/members'),
+  }
+
+  // ─── Knowledge Base ────────────────────────────────────────────────────────
+
+  kb = {
+    categories: {
+      list: (): Promise<KbCategory[]> =>
+        this.request<KbCategory[]>('GET', '/kb/categories'),
+
+      create: (data: Omit<KbCategory, 'id' | 'orgId' | 'createdAt' | 'articleCount'>): Promise<KbCategory> =>
+        this.request<KbCategory>('POST', '/kb/categories', data),
+
+      update: (id: string, data: Partial<Omit<KbCategory, 'id' | 'orgId' | 'createdAt' | 'articleCount'>>): Promise<KbCategory> =>
+        this.request<KbCategory>('PATCH', `/kb/categories/${id}`, data),
+
+      delete: (id: string): Promise<void> =>
+        this.request<void>('DELETE', `/kb/categories/${id}`),
+    },
+
+    articles: {
+      list: (params?: ListParams & { categoryId?: string; status?: ArticleStatus }): Promise<KbArticle[]> => {
+        const { categoryId, status, ...rest } = params ?? {}
+        const merged: ListParams = { ...rest }
+        if (categoryId !== undefined) merged['category_id'] = categoryId
+        if (status !== undefined) merged['status'] = status
+        return this.request<KbArticle[]>('GET', this.buildQuery('/kb/articles', merged))
+      },
+
+      get: (id: string): Promise<KbArticle> =>
+        this.request<KbArticle>('GET', `/kb/articles/${id}`),
+
+      create: (data: Omit<KbArticle, 'id' | 'orgId' | 'createdAt' | 'updatedAt' | 'viewCount'>): Promise<KbArticle> =>
+        this.request<KbArticle>('POST', '/kb/articles', data),
+
+      update: (id: string, data: Partial<Omit<KbArticle, 'id' | 'orgId' | 'createdAt' | 'updatedAt' | 'viewCount'>>): Promise<KbArticle> =>
+        this.request<KbArticle>('PATCH', `/kb/articles/${id}`, data),
+
+      delete: (id: string): Promise<void> =>
+        this.request<void>('DELETE', `/kb/articles/${id}`),
+
+      publish: (id: string): Promise<KbArticle> =>
+        this.request<KbArticle>('POST', `/kb/articles/${id}/publish`),
+    },
   }
 
   // ─── Sequences (bonus — referenced by marketing store) ─────────────────────

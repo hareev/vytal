@@ -9,11 +9,65 @@ Vytal adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- Salesforce adapter (REST + Tooling API)
-- HubSpot adapter (Private App Token)
-- Sequence delivery engine (scheduled drip campaigns)
-- Knowledge base module (articles, categories, customer portal)
 - Org comparison view (side-by-side health scores across multiple orgs)
+- Sequence email delivery provider integrations (SendGrid, Resend, Postmark)
+- Public customer knowledge portal (unauthenticated read-only view)
+- Scan history trend lines in Dashboard
+
+---
+
+## [0.3.0] — 2026-05-19
+
+### Added
+
+**CRM health adapters**
+
+- **Salesforce adapter** (`src/lib/adapters/salesforce.ts`) — REST + Tooling API; maps CustomObjects, CustomFields, Flows, DuplicateRules, User activity to `RawHealthPayload`; OAuth Connected App credentials
+- **HubSpot adapter** (`src/lib/adapters/hubspot.ts`) — Private App Token auth; maps Properties API (contacts/companies/deals), automation flows, and user activity; automatic portal ID resolution from token introspection
+
+**AI-powered intelligence layer**
+
+- `src/lib/ai/dealIntelligence.ts` — Claude-powered deal scoring: close probability 0–100, risk level, observable signals, and recommended next action
+- `src/lib/ai/enrichment.ts` — Contact enrichment from name + email domain + company; returns industry, size estimate, job title suggestion, LinkedIn hint, and confidence notes
+- `src/lib/ai/autoSegment.ts` — Natural language → `SegmentFilter[]`; describe an audience in plain English and Claude generates the structured filters
+- ✦ AI Intel button on pipeline deal cards (overlay with probability ring, risk badge, signals, recommendation)
+- ✦ Enrich button in contact detail panel (shows enrichment result inline)
+- ✦ AI Segment button in Marketing segments tab (modal + pre-filled segment form)
+
+**Knowledge Base module**
+
+- `server/routes/kb.ts` — 9 endpoints: categories CRUD + articles CRUD + publish action
+- `src/pages/knowledge/KnowledgeBase.tsx` — three-panel UI: category sidebar, article list, article detail; inline create/edit modals; empty state with CTA
+- `src/hooks/useKbStore.ts` — Zustand store for categories, articles, and active article
+- `server/db/schema.ts` — `kb_categories` and `kb_articles` tables
+- Mock seed: 3 categories, 10 articles (mix of draft/published) in `src/lib/api/mock.ts`
+- Sidebar nav entry (module-gated via `org.modules.knowledge`)
+
+**Webhook system**
+
+- `server/routes/webhooks.ts` — CRUD + test-ping endpoint; auto-generates HMAC-SHA256 signing secret; masks secret in responses; validates HTTPS URLs; 13 event types supported
+- `server/lib/webhookDispatcher.ts` — parallel delivery with HMAC-SHA256 `X-Vytal-Signature` header; 5-second timeout per request; `Promise.allSettled` (never throws)
+- `server/db/schema.ts` — `webhooks` table
+
+**Sequence delivery engine**
+
+- `server/routes/sequences.ts` — enrollment CRUD: enroll/unenroll contacts, list enrollments; fires `sequence.enrolled` and `sequence.completed` webhook events
+- `server/lib/sequenceScheduler.ts` — 60-second polling loop; processes `email`/`wait`/`condition` steps; advances `current_step`, computes `next_send_at` from `delay_hours`; isolated per-enrollment error handling
+- `server/db/schema.ts` — `sequence_enrollments` table
+
+**Infrastructure**
+
+- `Dockerfile` — multi-stage build: Vite frontend + Node API server in one image
+- `Dockerfile.dev` — lightweight dev image for `docker compose up`
+- `docker-compose.yml` — PostgreSQL 16 + API server + optional frontend dev service
+- `.dockerignore`
+
+### Changed
+
+- `src/types/auth.ts` — added `knowledge: boolean` to `Org.modules`
+- `server/db/schema.ts` — 5 new tables (now 18 total): `scan_history`, `webhooks`, `kb_categories`, `kb_articles`, `sequence_enrollments`
+- `src/lib/adapters/index.ts` — Salesforce and HubSpot now use real adapter manifests and factory instances
+- `package.json` — added `@hono/zod-validator` (was used across server routes but missing from dependencies)
 
 ---
 
@@ -118,6 +172,7 @@ Vytal adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-[Unreleased]: https://github.com/hareev/vytal/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/hareev/vytal/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/hareev/vytal/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hareev/vytal/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hareev/vytal/releases/tag/v0.1.0
