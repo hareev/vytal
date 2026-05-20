@@ -10,6 +10,10 @@ import ticketRoutes from './routes/tickets.js';
 import campaignRoutes from './routes/campaigns.js';
 import segmentRoutes from './routes/segments.js';
 import orgRoutes from './routes/orgs.js';
+import kbRoutes from './routes/kb.js';
+import { webhookRoutes } from './routes/webhooks.js';
+import { sequenceRoutes } from './routes/sequences.js';
+import { startSequenceScheduler } from './lib/sequenceScheduler.js';
 
 const app = new Hono();
 
@@ -37,6 +41,9 @@ app.route('/api/tickets', ticketRoutes);
 app.route('/api/campaigns', campaignRoutes);
 app.route('/api/segments', segmentRoutes);
 app.route('/api/orgs', orgRoutes);
+app.route('/api/kb', kbRoutes);
+app.route('/api/webhooks', webhookRoutes);
+app.route('/api/sequences', sequenceRoutes);
 
 // ---------------------------------------------------------------------------
 // Health check
@@ -63,6 +70,7 @@ const port = parseInt(process.env.PORT ?? '3001', 10);
 
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Vytal API server listening on http://localhost:${info.port}`);
+  startSequenceScheduler();
 });
 
 export { app };

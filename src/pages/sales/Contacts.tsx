@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { useCrmStore } from '@/hooks/useCrmStore'
 import type { Contact, ContactStatus, Deal } from '@/types/crm'
+import { enrichContact } from '@/lib/ai/enrichment'
+import type { ContactEnrichment } from '@/lib/ai/enrichment'
 
 const PAGE_SIZE = 20
 
@@ -122,6 +124,33 @@ interface SidePanelProps {
 
 function ContactPanel({ contact, deals, onClose, onEdit, onDelete }: SidePanelProps) {
   const contactDeals = deals.filter(d => d.contactId === contact.id)
+  const [enrichment, setEnrichment] = useState<ContactEnrichment | null>(null)
+  const [enrichLoading, setEnrichLoading] = useState(false)
+  const [enrichError, setEnrichError] = useState<string | null>(null)
+  const hasApiKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
+
+  // Reset enrichment when contact changes
+  useEffect(() => {
+    setEnrichment(null)
+    setEnrichError(null)
+  }, [contact.id])
+
+  async function handleEnrich() {
+    if (!hasApiKey) {
+      setEnrichError('Configure API key to enable AI features')
+      return
+    }
+    setEnrichLoading(true)
+    setEnrichError(null)
+    try {
+      const result = await enrichContact(contact)
+      setEnrichment(result)
+    } catch (err) {
+      setEnrichError(err instanceof Error ? err.message : 'Failed to enrich contact')
+    } finally {
+      setEnrichLoading(false)
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '380px', background: 'var(--bg-card)', borderLeft: '0.5px solid var(--border)', zIndex: 500, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
@@ -162,6 +191,69 @@ function ContactPanel({ contact, deals, onClose, onEdit, onDelete }: SidePanelPr
           )}
         </div>
 
+        {/* AI Enrichment */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>AI Enrichment</p>
+            {!enrichment && (
+              <button
+                onClick={handleEnrich}
+                disabled={enrichLoading}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                  padding: '4px 10px', borderRadius: '6px',
+                  border: '0.5px solid var(--accent)',
+                  background: 'var(--accent-bg)',
+                  fontSize: '11px', fontWeight: 600,
+                  color: 'var(--accent-text)',
+                  cursor: enrichLoading ? 'not-allowed' : 'pointer',
+                  opacity: enrichLoading ? 0.7 : 1,
+                }}
+              >
+                {enrichLoading
+                  ? <><span style={{ display: 'inline-block', width: '10px', height: '10px', border: '1.5px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Enriching…</>
+                  : <>✦ Enrich</>
+                }
+              </button>
+            )}
+          </div>
+
+          {enrichError && (
+            <div style={{ fontSize: '11px', color: 'var(--danger-text)', background: 'var(--danger-bg)', padding: '6px 8px', borderRadius: '6px', marginBottom: '8px' }}>
+              {enrichError}
+            </div>
+          )}
+
+          {enrichment && (
+            <div style={{ background: 'var(--bg-secondary)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {[
+                { label: 'Industry', value: enrichment.industry },
+                { label: 'Company size', value: enrichment.companySize },
+                { label: 'Job title', value: enrichment.jobTitle },
+                { label: 'LinkedIn', value: enrichment.linkedinSuggestion },
+              ].filter(row => row.value).map(row => (
+                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{row.label}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-primary)', textAlign: 'right', wordBreak: 'break-word' }}>{row.value}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', borderTop: '0.5px solid var(--border)', paddingTop: '6px', marginTop: '2px', fontStyle: 'italic', lineHeight: 1.4 }}>
+                {enrichment.notes}
+              </div>
+              <button
+                onClick={() => { setEnrichment(null); setEnrichError(null) }}
+                style={{ alignSelf: 'flex-end', background: 'none', border: 'none', fontSize: '10px', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '2px' }}
+              >
+                Re-run
+              </button>
+            </div>
+          )}
+
+          {!enrichment && !enrichError && !enrichLoading && (
+            <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Click Enrich to infer industry, company size, and more.</p>
+          )}
+        </div>
+
         {/* Deals */}
         <div>
           <p style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
@@ -197,6 +289,7 @@ function ContactPanel({ contact, deals, onClose, onEdit, onDelete }: SidePanelPr
           Delete
         </button>
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

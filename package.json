@@ -1,6 +1,6 @@
 {
   "name": "vytal",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Open-source headless CRM with AI-powered health monitoring",
   "author": "hareev",
   "license": "MIT",
@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.12.0",
+    "@hono/zod-validator": "^0.8.0",
     "@neondatabase/serverless": "^0.9.4",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",

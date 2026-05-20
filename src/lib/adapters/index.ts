@@ -1,30 +1,17 @@
 import { D365Adapter } from './d365'
+import { SalesforceAdapter } from './salesforce'
+import { HubSpotAdapter } from './hubspot'
 import type { BaseAdapter, AdapterManifest } from './base'
 import type { OrgConnection } from '@/types/health'
 
-export { D365Adapter }
+export { D365Adapter, SalesforceAdapter, HubSpotAdapter }
 export type { BaseAdapter, AdapterManifest }
 
 // Registry of all available adapter manifests (for rendering connect UI)
 export const ADAPTER_MANIFESTS: Record<OrgConnection['platform'], AdapterManifest> = {
   dynamics365: D365Adapter.manifest,
-  salesforce: {
-    platform: 'salesforce',
-    name: 'Salesforce',
-    credentialFields: [
-      { key: 'instanceUrl', label: 'Instance URL', type: 'url', placeholder: 'https://yourorg.salesforce.com', required: true },
-      { key: 'accessToken', label: 'Access Token', type: 'password', required: true, helpText: 'From a Connected App OAuth flow' },
-    ],
-    docsUrl: 'https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/',
-  },
-  hubspot: {
-    platform: 'hubspot',
-    name: 'HubSpot',
-    credentialFields: [
-      { key: 'accessToken', label: 'Private App Token', type: 'password', required: true },
-    ],
-    docsUrl: 'https://developers.hubspot.com/docs/api/overview',
-  },
+  salesforce: SalesforceAdapter.manifest,
+  hubspot: HubSpotAdapter.manifest,
   zoho: {
     platform: 'zoho',
     name: 'Zoho CRM',
@@ -85,6 +72,8 @@ export const ADAPTER_MANIFESTS: Record<OrgConnection['platform'], AdapterManifes
 export function createAdapter(platform: OrgConnection['platform']): BaseAdapter {
   switch (platform) {
     case 'dynamics365': return new D365Adapter()
+    case 'salesforce': return new SalesforceAdapter()
+    case 'hubspot': return new HubSpotAdapter()
     default:
       throw new Error(`Adapter for platform '${platform}' not yet implemented. Contribute one at github.com/hareev/vytal!`)
   }
