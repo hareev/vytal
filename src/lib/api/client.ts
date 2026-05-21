@@ -3,6 +3,7 @@ import type { Campaign, Segment, Sequence, SequenceStep } from '@/types/marketin
 import type { Ticket, TicketMessage } from '@/types/service'
 import type { User, Org } from '@/types/auth'
 import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
+import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata } from '@/types/captures'
 
 // ─── Request / Response shapes ────────────────────────────────────────────────
 
@@ -252,6 +253,36 @@ export class ApiClient {
 
     addStep: (sequenceId: string, data: Omit<SequenceStep, 'id' | 'sequenceId'>): Promise<SequenceStep> =>
       this.request<SequenceStep>('POST', `/sequences/${sequenceId}/steps`, data),
+  }
+
+  // ─── Captures ──────────────────────────────────────────────────────────────
+
+  captures = {
+    list: (params?: { status?: CaptureStatus; channelType?: ChannelType; limit?: number }): Promise<ChannelCapture[]> => {
+      const p: ListParams = {}
+      if (params?.status !== undefined) p['status'] = params.status
+      if (params?.channelType !== undefined) p['channelType'] = params.channelType
+      if (params?.limit !== undefined) p['limit'] = params.limit
+      return this.request<ChannelCapture[]>('GET', this.buildQuery('/captures', p))
+    },
+
+    get: (id: string): Promise<ChannelCapture> =>
+      this.request<ChannelCapture>('GET', `/captures/${id}`),
+
+    create: (data: { channelType: ChannelType; rawContent: string; metadata?: CaptureMetadata }): Promise<ChannelCapture> =>
+      this.request<ChannelCapture>('POST', '/captures', data),
+
+    process: (id: string): Promise<ChannelCapture> =>
+      this.request<ChannelCapture>('POST', `/captures/${id}/process`),
+
+    accept: (id: string): Promise<ChannelCapture> =>
+      this.request<ChannelCapture>('POST', `/captures/${id}/accept`),
+
+    dismiss: (id: string): Promise<ChannelCapture> =>
+      this.request<ChannelCapture>('POST', `/captures/${id}/dismiss`),
+
+    ingest: (data: { channelType: ChannelType; rawContent: string; metadata?: CaptureMetadata }): Promise<{ captureId: string; status: string }> =>
+      this.request<{ captureId: string; status: string }>('POST', '/captures/ingest', data),
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
