@@ -335,3 +335,28 @@ export const sequence_enrollments = pgTable('sequence_enrollments', {
   enrolled_at: timestamp('enrolled_at').defaultNow().notNull(),
   completed_at: timestamp('completed_at'),
 });
+
+// ---------------------------------------------------------------------------
+// channel_captures — universal conversation capture (email/chat/call/doc)
+// ---------------------------------------------------------------------------
+export const channel_captures = pgTable('channel_captures', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  org_id: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  channel_type: text('channel_type', {
+    enum: ['email', 'chat', 'call_transcript', 'document', 'sms', 'manual'],
+  }).notNull(),
+  status: text('status', {
+    enum: ['raw', 'processing', 'ready', 'accepted', 'dismissed'],
+  }).notNull().default('raw'),
+  raw_content: text('raw_content').notNull(),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  extraction: jsonb('extraction'),
+  linked_contact_ids: text('linked_contact_ids').array().notNull().default([]),
+  linked_deal_ids: text('linked_deal_ids').array().notNull().default([]),
+  linked_activity_id: uuid('linked_activity_id').references(() => activities.id, { onDelete: 'set null' }),
+  accepted_at: timestamp('accepted_at'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
