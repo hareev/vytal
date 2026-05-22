@@ -21,6 +21,7 @@ import { Pipeline } from '@/pages/sales/Pipeline'
 import { Marketing } from '@/pages/marketing/Marketing'
 import { Service } from '@/pages/service/Service'
 import { KnowledgeBase } from '@/pages/knowledge/KnowledgeBase'
+import { ChannelCapture } from '@/pages/captures/ChannelCapture'
 import { Settings } from '@/pages/Settings'
 
 function RootRedirect() {
@@ -59,6 +60,8 @@ export default function App() {
           <Route path="service" element={<Service />} />
           <Route path="knowledge" element={<KnowledgeBase />} />
           <Route path="knowledge/:articleId" element={<KnowledgeBase />} />
+          <Route path="captures" element={<ChannelCapture />} />
+          <Route path="captures/:captureId" element={<ChannelCapture />} />
           <Route path="settings" element={<Settings />} />
         </Route>
 

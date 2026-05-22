@@ -46,6 +46,14 @@ function IconKnowledge() {
     </svg>
   )
 }
+function IconCapture() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v5a1 1 0 01-1 1H9l-3 3v-3H3a1 1 0 01-1-1V4z" />
+      <path d="M5 7h2M5 7h6" />
+    </svg>
+  )
+}
 function IconSettings() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -56,6 +64,12 @@ function IconSettings() {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  {
+    label: 'Channel Capture',
+    path: '/app/captures',
+    icon: IconCapture,
+    module: 'captures',
+  },
   {
     label: 'Onboarding & Scan',
     path: '/app/health',

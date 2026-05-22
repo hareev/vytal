@@ -7,7 +7,7 @@
 ![AI](https://img.shields.io/badge/AI-Claude%20API-orange)
 ![DB](https://img.shields.io/badge/database-Neon%20%2F%20Postgres-teal)
 
-Vytal started as a CRM health monitor. It's now a complete open-source CRM platform: Sales pipeline, Marketing campaigns, Customer Service, and the original AI-powered Health Doctor — all backed by a headless REST API that any frontend can consume.
+Vytal is a open-source CRM platform: Sales pipeline, Marketing campaigns, Customer Service, and the original AI-powered Health Doctor — all backed by a headless REST API that any frontend can consume.
 
 **No vendor lock-in. Your data stays in your own Neon database.**
 

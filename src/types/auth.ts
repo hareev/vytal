@@ -23,6 +23,7 @@ export interface Org {
     service: boolean
     health: boolean
     knowledge: boolean
+    captures: boolean
   }
   createdAt: Date
 }

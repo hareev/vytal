@@ -3,6 +3,7 @@ import type { Campaign, Segment, Sequence, SequenceStep } from '@/types/marketin
 import type { Ticket, TicketMessage } from '@/types/service'
 import type { User, Org } from '@/types/auth'
 import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
+import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata } from '@/types/captures'
 import type { ListParams, AuthLoginResponse, AuthRegisterResponse, MeResponse } from './client'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ const DEMO_ORG: Org = {
   name: 'Acme Corp',
   slug: 'acme',
   plan: 'pro',
-  modules: { sales: true, marketing: true, service: true, health: true, knowledge: true },
+  modules: { sales: true, marketing: true, service: true, health: true, knowledge: true, captures: true },
   createdAt: daysAgo(180),
 }
 
@@ -438,6 +439,186 @@ const kbArticleMap = new Map<string, KbArticle>([
   }],
 ])
 
+// ─── Seed: Captures ──────────────────────────────────────────────────────────
+
+const CAPTURES_SEED: ChannelCapture[] = [
+  {
+    id: 'cap-01',
+    orgId: DEMO_ORG_ID,
+    channelType: 'email',
+    status: 'ready',
+    rawContent: `From: alice@techcorp.io\nTo: sales@acme.io\nSubject: Re: Q3 renewal pricing\n\nHi,\n\nThanks for sending over the initial quote. We've reviewed it with the team and have a few questions before moving forward.\n\nFirst, we'd love to see pricing broken down by seat for the Enterprise tier — our HR team is expanding and we anticipate adding 15–20 more seats by Q4.\n\nAlso, can you confirm whether the advanced analytics module is included in the $48,000 annual renewal, or if that's an add-on? That feature is critical for our reporting workflows.\n\nFinally, the legal team asked whether we can get the updated MSA sent by Thursday — they want to review before the board meeting on Friday.\n\nLooking forward to hearing from you.\n\nAlice\nAlice Johnson | VP Operations | TechCorp\nalice@techcorp.io | +1-555-0101`,
+    metadata: {
+      from: 'alice@techcorp.io',
+      to: ['sales@acme.io'],
+      subject: 'Re: Q3 renewal pricing',
+    },
+    extraction: {
+      summary: 'Alice Johnson (TechCorp VP Operations) is reviewing the Q3 Enterprise renewal quote ($48,000 annual). She needs pricing breakdown by seat, confirmation on analytics module inclusion, and the updated MSA sent by Thursday for a board meeting Friday.',
+      sentiment: 'positive',
+      intent: 'sales',
+      topics: ['renewal pricing', 'enterprise tier', 'seat expansion', 'analytics module', 'MSA review', 'Q3'],
+      contacts: [
+        { name: 'Alice Johnson', email: 'alice@techcorp.io', company: 'TechCorp', role: 'VP Operations', existingContactId: 'c01' },
+      ],
+      actionItems: [
+        { description: 'Send updated pricing sheet broken down by seat for Enterprise tier', owner: 'Sales', dueHint: 'Thursday', completed: false },
+        { description: 'Confirm whether advanced analytics module is included in $48,000 renewal', owner: 'Sales', dueHint: 'Thursday', completed: false },
+        { description: 'Send updated MSA to Alice for legal review', owner: 'Legal / Sales', dueHint: 'by Thursday before Friday board meeting', completed: false },
+      ],
+      dealSignals: [
+        { mentionedValue: '$48,000 annual', mentionedTimeline: 'Q3 renewal', stageSuggestion: 'Negotiation', existingDealId: 'd01' },
+      ],
+      keyPoints: [
+        'TechCorp anticipates adding 15–20 more seats by Q4 — upsell opportunity',
+        'Advanced analytics module is critical for their reporting workflows',
+        'Board meeting Friday — time-sensitive, MSA must arrive by Thursday',
+        'Alice is VP Operations; legal team is also involved in review',
+      ],
+    },
+    linkedContactIds: ['c01'],
+    linkedDealIds: ['d01'],
+    createdAt: daysAgo(0),
+    updatedAt: daysAgo(0),
+  },
+  {
+    id: 'cap-02',
+    orgId: DEMO_ORG_ID,
+    channelType: 'chat',
+    status: 'ready',
+    rawContent: `#support-escalations\n\nBob Martinez [9:14 AM]: Hey team — we've been hitting consistent 429 errors when syncing our transaction data via the API. This is blocking our end-of-month reconciliation. Can someone from engineering take a look?\n\nSarah (Support Lead) [9:22 AM]: Hi Bob, I can see the issue. Your org is hitting the 100 req/min limit. I'll escalate to engineering and also bump your rate limit temporarily.\n\nBob Martinez [9:25 AM]: Thanks Sarah. Also — we have a demo with our CFO next Tuesday and we need the API integration running cleanly by then. This is pretty urgent.\n\nSarah (Support Lead) [9:30 AM]: Understood. I'm filing a ticket now and flagging it as high priority. Engineering will follow up by EOD.\n\nBob Martinez [9:31 AM]: Appreciate it. Also can you confirm that the batch import endpoint handles >50k rows? We're planning a large historical data import.`,
+    metadata: {
+      participants: ['Bob Martinez', 'Sarah (Support Lead)'],
+      source: 'Slack #support-escalations',
+    },
+    extraction: {
+      summary: 'Bob Martinez (Finex) is experiencing API rate limit (429) errors blocking their month-end reconciliation. He has a CFO demo next Tuesday and needs the integration running cleanly. Also asked about batch import capacity for 50k+ rows.',
+      sentiment: 'neutral',
+      intent: 'support',
+      topics: ['API rate limits', '429 errors', 'reconciliation', 'batch import', 'CFO demo', 'escalation'],
+      contacts: [
+        { name: 'Bob Martinez', email: 'bob@finex.com', company: 'Finex', existingContactId: 'c02' },
+      ],
+      actionItems: [
+        { description: 'Temporarily increase rate limit for Finex org', owner: 'Engineering', dueHint: 'EOD today', completed: false },
+        { description: 'Confirm batch import endpoint capacity for >50k rows', owner: 'Engineering', dueHint: 'before Bob\'s CFO demo on Tuesday', completed: false },
+        { description: 'Ensure API integration is clean and stable before Bob\'s CFO demo', owner: 'Engineering / Support', dueHint: 'by Tuesday', completed: false },
+      ],
+      dealSignals: [
+        { mentionedTimeline: 'CFO demo next Tuesday', stageSuggestion: 'Qualified', existingDealId: 'd02' },
+      ],
+      keyPoints: [
+        'Rate limit 429 errors blocking Finex\'s month-end reconciliation workflow',
+        'CFO demo on Tuesday — high visibility, must be resolved before then',
+        'Planned large historical data import (>50k rows) — potential performance concern',
+        'Sarah (Support Lead) escalated and filed high-priority ticket',
+      ],
+    },
+    linkedContactIds: ['c02'],
+    linkedDealIds: ['d02'],
+    createdAt: daysAgo(1),
+    updatedAt: daysAgo(1),
+  },
+  {
+    id: 'cap-03',
+    orgId: DEMO_ORG_ID,
+    channelType: 'call_transcript',
+    status: 'accepted',
+    rawContent: `[Call recording — 45 minutes]\n\nRep: Hi Carol, thanks for joining. I know you've been evaluating a few platforms.\n\nCarol: Yes, we narrowed it down to you and one other vendor. The deciding factor will be how well the health tracking integrates with our existing EHR.\n\nRep: Great — let me walk you through our HL7 integration module...\n\n[... 38 minutes of product walkthrough ...]\n\nCarol: I think this works. The compliance reporting piece especially — HIPAA audit trails are non-negotiable for us.\n\nRep: Absolutely, that's built-in. What's your timeline for a decision?\n\nCarol: We want to move forward by end of month. Budget is approved — we're looking at around $9,500 for the initial contract, with room to expand.\n\nRep: Perfect. I'll send over the SOC 2 documentation and HIPAA addendum today.\n\nCarol Lee | Director of Operations | HealthPlus\ncarol@healthplus.org`,
+    metadata: {
+      duration: 45,
+      participants: ['Carol Lee', 'Rep (Acme)'],
+    },
+    extraction: {
+      summary: 'Sales call with Carol Lee (HealthPlus Director of Operations). Decision between Vytal and one other vendor. Carol highlighted HIPAA compliance and EHR integration as key factors. Budget approved at ~$9,500. Timeline: end of month. Action: send SOC 2 docs and HIPAA addendum.',
+      sentiment: 'positive',
+      intent: 'sales',
+      topics: ['EHR integration', 'HIPAA compliance', 'SOC 2', 'HL7', 'contract', 'competitive evaluation'],
+      contacts: [
+        { name: 'Carol Lee', email: 'carol@healthplus.org', company: 'HealthPlus', role: 'Director of Operations', existingContactId: 'c03' },
+      ],
+      actionItems: [
+        { description: 'Send SOC 2 documentation to Carol', owner: 'Sales', dueHint: 'today', completed: true },
+        { description: 'Send HIPAA addendum to Carol', owner: 'Legal', dueHint: 'today', completed: true },
+        { description: 'Follow up before end of month for contract signature', owner: 'Sales', dueHint: 'end of month', completed: false },
+      ],
+      dealSignals: [
+        { mentionedValue: '$9,500 initial contract with expansion potential', mentionedTimeline: 'end of month decision', stageSuggestion: 'Proposal', existingDealId: 'd03' },
+      ],
+      keyPoints: [
+        'Two-vendor shortlist — Vytal vs. one competitor',
+        'HIPAA audit trails are non-negotiable requirement',
+        'EHR integration (HL7) is the primary technical decision factor',
+        'Budget is already approved — decision is end of month',
+        'Carol is the decision-maker (Director of Operations)',
+      ],
+    },
+    linkedContactIds: ['c03'],
+    linkedDealIds: ['d03'],
+    linkedActivityId: 'activity-mock-call-carol',
+    acceptedAt: daysAgo(2),
+    createdAt: daysAgo(2),
+    updatedAt: daysAgo(2),
+  },
+  {
+    id: 'cap-04',
+    orgId: DEMO_ORG_ID,
+    channelType: 'document',
+    status: 'raw',
+    rawContent: `INTERNAL MEETING NOTES\nQ3 Strategy Review — RetailCo Account\nDate: Today\nAttendees: Sales, Product, Customer Success\n\nAgenda:\n1. RetailCo expansion discussion\n2. Product gaps identified\n3. Action items\n\nNotes:\n- RetailCo's David Patel confirmed they want to expand from 50 to 200 seats\n- Main blocker: bulk user provisioning via SCIM not yet available\n- Product confirmed SCIM is on the roadmap for Q4\n- David mentioned a competing offer from a rival CRM at $12k/year for 200 seats\n- We need to respond with competitive pricing by next week\n- CS team to prepare onboarding plan for 200-seat expansion\n- Legal to review updated MSA for expanded volume\n\nNext steps:\n- Sales to send competitive pricing proposal by Friday\n- Product to provide SCIM timeline commitment in writing\n- CS to schedule kickoff call with RetailCo team\n- Follow-up meeting scheduled for next Thursday`,
+    metadata: {
+      fileName: 'RetailCo-Q3-Strategy-Notes.txt',
+    },
+    extraction: undefined,
+    linkedContactIds: [],
+    linkedDealIds: [],
+    createdAt: new Date(Date.now() - 5 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 5 * 60 * 1000),
+  },
+  {
+    id: 'cap-05',
+    orgId: DEMO_ORG_ID,
+    channelType: 'email',
+    status: 'ready',
+    rawContent: `From: david@retailco.com\nTo: enterprise@acme.io\nSubject: Enterprise plan inquiry — 200 seats\n\nHi,\n\nI'm David Patel, VP of Technology at RetailCo. We've been using your Pro plan for a year and have been very happy with it.\n\nWe're planning a significant expansion and I'd like to understand your Enterprise pricing for around 200 seats. We're particularly interested in:\n\n1. SSO / SAML integration (we use Okta)\n2. Bulk user provisioning (SCIM)\n3. Advanced reporting and custom dashboards\n4. Dedicated customer success manager\n\nOur budget for this expansion is in the $120,000 range annually. We have a board presentation in 6 weeks where we'd like to present the finalized vendor decision.\n\nCan we schedule a call this week?\n\nDavid Patel | VP of Technology | RetailCo\ndavid@retailco.com | +1-555-0104`,
+    metadata: {
+      from: 'david@retailco.com',
+      to: ['enterprise@acme.io'],
+      subject: 'Enterprise plan inquiry — 200 seats',
+    },
+    extraction: {
+      summary: 'David Patel (RetailCo VP of Technology) is inquiring about Enterprise pricing for 200 seats (~$120k annual budget). Key requirements: SSO/SAML (Okta), SCIM provisioning, advanced reporting, dedicated CSM. Board presentation in 6 weeks — firm timeline.',
+      sentiment: 'positive',
+      intent: 'sales',
+      topics: ['enterprise pricing', '200 seats', 'SSO', 'SAML', 'Okta', 'SCIM', 'custom dashboards', 'CSM', 'board presentation'],
+      contacts: [
+        { name: 'David Patel', email: 'david@retailco.com', company: 'RetailCo', role: 'VP of Technology', existingContactId: 'c04' },
+      ],
+      actionItems: [
+        { description: 'Schedule discovery call with David Patel this week', owner: 'Sales', dueHint: 'this week', completed: false },
+        { description: 'Prepare Enterprise pricing proposal for 200 seats', owner: 'Sales', dueHint: 'before call', completed: false },
+        { description: 'Confirm SSO/SAML (Okta) and SCIM availability on Enterprise tier', owner: 'Product / Sales', dueHint: 'for the call', completed: false },
+      ],
+      dealSignals: [
+        { mentionedValue: '$120,000 annual', mentionedTimeline: '6-week board presentation deadline', stageSuggestion: 'Qualified', existingDealId: 'd04' },
+      ],
+      keyPoints: [
+        'Existing Pro customer (1 year) — warm, high-intent expansion inquiry',
+        '$120k annual budget — largest deal signal in the pipeline',
+        'SSO/Okta and SCIM are hard requirements, not nice-to-haves',
+        'Board presentation in 6 weeks — vendor decision must be finalized by then',
+        'Wants dedicated CSM — factor into pricing and CS capacity',
+      ],
+    },
+    linkedContactIds: ['c04'],
+    linkedDealIds: ['d04'],
+    createdAt: daysAgo(3),
+    updatedAt: daysAgo(3),
+  },
+]
+
+const captureMap = new Map<string, ChannelCapture>(CAPTURES_SEED.map((c) => [c.id, c]))
+
 // ─── MockApiClient ────────────────────────────────────────────────────────────
 
 class MockApiClient {
@@ -775,6 +956,117 @@ class MockApiClient {
       const step: SequenceStep = { ...data, id: uid(), sequenceId }
       seq.steps.push(step)
       return resolve(step)
+    },
+  }
+
+  // ─── Captures ────────────────────────────────────────────────────────────
+
+  captures = {
+    list: (params?: { status?: CaptureStatus; channelType?: ChannelType; limit?: number }): Promise<ChannelCapture[]> => {
+      let items = Array.from(captureMap.values())
+      if (params?.status) items = items.filter((c) => c.status === params.status)
+      if (params?.channelType) items = items.filter((c) => c.channelType === params.channelType)
+      items = items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      if (params?.limit) items = items.slice(0, params.limit)
+      return resolve(items)
+    },
+
+    get: (id: string): Promise<ChannelCapture> => {
+      const c = captureMap.get(id)
+      if (!c) return Promise.reject(new Error(`Capture ${id} not found`))
+      return resolve(c)
+    },
+
+    create: (data: { channelType: ChannelType; rawContent: string; metadata?: CaptureMetadata }): Promise<ChannelCapture> => {
+      const now = new Date()
+      const mockExtraction = {
+        summary: 'Mock mode: AI processing simulated. In production, Claude analyzes your actual content to extract contacts, action items, deal signals, and key insights.',
+        sentiment: 'neutral' as const,
+        intent: 'general' as const,
+        topics: ['mock', 'demo'],
+        contacts: [],
+        actionItems: [{ description: 'Review this capture and link to CRM records', owner: 'You', dueHint: 'today', completed: false }],
+        dealSignals: [],
+        keyPoints: ['Content was captured successfully', 'In production mode, Claude will analyze and extract structured data', 'Use the Accept button to file this to your CRM'],
+      }
+      const capture: ChannelCapture = {
+        id: `cap-${uid()}`,
+        orgId: DEMO_ORG_ID,
+        channelType: data.channelType,
+        status: 'ready',
+        rawContent: data.rawContent,
+        metadata: data.metadata ?? {},
+        extraction: mockExtraction,
+        linkedContactIds: [],
+        linkedDealIds: [],
+        createdAt: now,
+        updatedAt: now,
+      }
+      captureMap.set(capture.id, capture)
+      return resolve(capture)
+    },
+
+    process: (id: string): Promise<ChannelCapture> => {
+      const existing = captureMap.get(id)
+      if (!existing) return Promise.reject(new Error(`Capture ${id} not found`))
+      const updated: ChannelCapture = {
+        ...existing,
+        status: 'ready',
+        extraction: {
+          summary: 'Mock mode: AI re-processing simulated. In production, Claude re-analyzes your content.',
+          sentiment: 'neutral',
+          intent: 'general',
+          topics: ['reprocessed', 'mock'],
+          contacts: [],
+          actionItems: [],
+          dealSignals: [],
+          keyPoints: ['Content was re-analyzed (mock)', 'In production, Claude would extract fresh insights'],
+        },
+        updatedAt: new Date(),
+      }
+      captureMap.set(id, updated)
+      return resolve(updated)
+    },
+
+    accept: (id: string): Promise<ChannelCapture> => {
+      const existing = captureMap.get(id)
+      if (!existing) return Promise.reject(new Error(`Capture ${id} not found`))
+      const updated: ChannelCapture = {
+        ...existing,
+        status: 'accepted',
+        acceptedAt: new Date(),
+        linkedActivityId: `activity-mock-${uid()}`,
+        updatedAt: new Date(),
+      }
+      captureMap.set(id, updated)
+      return resolve(updated)
+    },
+
+    dismiss: (id: string): Promise<ChannelCapture> => {
+      const existing = captureMap.get(id)
+      if (!existing) return Promise.reject(new Error(`Capture ${id} not found`))
+      const updated: ChannelCapture = { ...existing, status: 'dismissed', updatedAt: new Date() }
+      captureMap.set(id, updated)
+      return resolve(updated)
+    },
+
+    ingest: (data: { channelType: ChannelType; rawContent: string; metadata?: CaptureMetadata }): Promise<{ captureId: string; status: string }> => {
+      const now = new Date()
+      const captureId = `cap-${uid()}`
+      const capture: ChannelCapture = {
+        id: captureId,
+        orgId: DEMO_ORG_ID,
+        channelType: data.channelType,
+        status: 'raw',
+        rawContent: data.rawContent,
+        metadata: data.metadata ?? {},
+        linkedContactIds: [],
+        linkedDealIds: [],
+        createdAt: now,
+        updatedAt: now,
+      }
+      captureMap.set(captureId, capture)
+      return resolve({ captureId, status: 'raw' })
     },
   }
 }
