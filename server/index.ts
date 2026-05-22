@@ -14,6 +14,7 @@ import kbRoutes from './routes/kb.js';
 import { webhookRoutes } from './routes/webhooks.js';
 import { sequenceRoutes } from './routes/sequences.js';
 import { captureRoutes } from './routes/captures.js';
+import { ingestRoutes } from './routes/ingest.js';
 import { startSequenceScheduler } from './lib/sequenceScheduler.js';
 
 const app = new Hono();
@@ -46,6 +47,7 @@ app.route('/api/kb', kbRoutes);
 app.route('/api/webhooks', webhookRoutes);
 app.route('/api/sequences', sequenceRoutes);
 app.route('/api/captures', captureRoutes);
+app.route('/api/ingest', ingestRoutes);   // public — no JWT required
 
 // ---------------------------------------------------------------------------
 // Health check
