@@ -56,6 +56,7 @@ export const contacts = pgTable('contacts', {
     .default('lead'),
   tags: text('tags').array(),
   notes: text('notes'),
+  source: text('source'),
   owner_id: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
@@ -359,4 +360,23 @@ export const channel_captures = pgTable('channel_captures', {
   accepted_at: timestamp('accepted_at'),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// channel_events — inbound events from source adapters (web forms, email, etc.)
+// ---------------------------------------------------------------------------
+export const channel_events = pgTable('channel_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  org_id: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  source: text('source').notNull(),
+  external_id: text('external_id'),
+  status: text('status', {
+    enum: ['pending', 'resolved', 'duplicate', 'failed'],
+  }).notNull().default('pending'),
+  raw_payload: jsonb('raw_payload').notNull(),
+  resolved_contact_id: uuid('resolved_contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+  processed_at: timestamp('processed_at'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
 });
