@@ -18,6 +18,7 @@ export const organizations = pgTable('organizations', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   plan: text('plan', { enum: ['free', 'starter', 'pro'] }).notNull().default('free'),
+  modules: jsonb('modules').notNull().default({ sales: true, marketing: true, service: true, health: true, knowledge: true, captures: true }),
   created_at: timestamp('created_at').defaultNow().notNull(),
 });
 

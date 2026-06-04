@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 
 import authRoutes from './routes/auth.js';
+import healthRoutes from './routes/health.js';
 import contactRoutes from './routes/contacts.js';
 import dealRoutes from './routes/deals.js';
 import pipelineRoutes from './routes/pipelines.js';
@@ -36,6 +37,7 @@ app.use(
 // Routes
 // ---------------------------------------------------------------------------
 app.route('/api/auth', authRoutes);
+app.route('/api/health', healthRoutes);
 app.route('/api/contacts', contactRoutes);
 app.route('/api/deals', dealRoutes);
 app.route('/api/pipelines', pipelineRoutes);

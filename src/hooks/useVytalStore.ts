@@ -17,7 +17,7 @@ interface VytalState {
   lastScanAt: Date | null
 
   // Actions
-  setConnection: (conn: OrgConnection, adapter: BaseAdapter) => void
+  setConnection: (conn: OrgConnection, adapter: BaseAdapter | null) => void
   setHealthData: (data: ScoredHealthPayload) => void
   setDiagnosis: (diag: AIDiagnosis) => void
   setScanning: (v: boolean, error?: string) => void

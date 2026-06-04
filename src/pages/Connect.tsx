@@ -24,8 +24,12 @@ export function Connect() {
 
   const manifest = selectedPlatform ? ADAPTER_MANIFESTS[selectedPlatform] : null
 
+  const missingRequired = manifest
+    ? manifest.credentialFields.filter(f => f.required && !credentials[f.key]?.trim()).map(f => f.label)
+    : []
+
   async function handleConnect() {
-    if (!selectedPlatform) return
+    if (!selectedPlatform || missingRequired.length > 0) return
     try {
       await connect(selectedPlatform, credentials)
       await scan()
@@ -113,21 +117,26 @@ export function Connect() {
 
           <button
             onClick={handleConnect}
-            disabled={!selectedPlatform || isConnecting}
+            disabled={!selectedPlatform || missingRequired.length > 0 || isConnecting}
             style={{
               width: '100%', padding: '10px', borderRadius: '10px',
-              background: selectedPlatform ? 'var(--accent)' : 'var(--border)',
-              border: 'none', cursor: selectedPlatform && !isConnecting ? 'pointer' : 'not-allowed',
-              fontSize: '14px', fontWeight: 500, color: selectedPlatform ? '#fff' : 'var(--text-tertiary)',
+              background: selectedPlatform && missingRequired.length === 0 ? 'var(--accent)' : 'var(--border)',
+              border: 'none', cursor: selectedPlatform && missingRequired.length === 0 && !isConnecting ? 'pointer' : 'not-allowed',
+              fontSize: '14px', fontWeight: 500,
+              color: selectedPlatform && missingRequired.length === 0 ? '#fff' : 'var(--text-tertiary)',
               transition: 'opacity 0.15s',
               opacity: isConnecting ? 0.7 : 1,
             }}
           >
-            {isConnecting ? 'Connecting & scanning...' : 'Connect and scan'}
+            {isConnecting
+              ? 'Connecting & scanning...'
+              : missingRequired.length > 0
+                ? `Fill in: ${missingRequired.join(', ')}`
+                : 'Connect and scan'}
           </button>
 
           <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '12px', marginBottom: 0 }}>
-            Credentials stay in your browser session — never sent to any server except the CRM itself.
+            Credentials are used only for the duration of the scan and are never stored.
           </p>
         </div>
 

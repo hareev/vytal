@@ -260,6 +260,9 @@
     .fade-in-delay-2 { transition-delay: 0.2s; }
     .fade-in-delay-3 { transition-delay: 0.3s; }
     .fade-in-delay-4 { transition-delay: 0.4s; }
+    .fade-in-delay-5 { transition-delay: 0.5s; }
+    .fade-in-delay-6 { transition-delay: 0.6s; }
+    .fade-in-delay-7 { transition-delay: 0.7s; }
 
     /* ─── Pain points ──────────────────────────────────────────── */
     .pain-section { background: var(--bg-card); border-top: 1px solid var(--bg-border); border-bottom: 1px solid var(--bg-border); }
@@ -406,7 +409,7 @@
       padding: 3px 9px; border-radius: 6px;
     }
 
-    /* ─── Health Doctor ─────────────────────────────────────────── */
+    /* ─── Vytal Scan ────────────────────────────────────────────── */
     .health-section { background: var(--bg-card); border-top: 1px solid var(--bg-border); border-bottom: 1px solid var(--bg-border); }
 
     .health-grid {
@@ -617,7 +620,7 @@
         <li><a href="#pain">Problem</a></li>
         <li><a href="#solution">Platform</a></li>
         <li><a href="#modules">Modules</a></li>
-        <li><a href="#health">Health Doctor</a></li>
+        <li><a href="#health">Vytal Scan</a></li>
         <li><a href="#compatibility">Integrations</a></li>
       </ul>
       <div class="nav-cta">
@@ -802,7 +805,7 @@
               <div class="arch-dot" style="background:#06b6d4;box-shadow:0 0 8px #06b6d4;"></div>
               <div>
                 <div class="arch-layer-label">CRM Adapter layer</div>
-                <div class="arch-layer-sub">D365 · Salesforce · HubSpot · Siebel</div>
+                <div class="arch-layer-sub">D365 · Salesforce · HubSpot · Zoho · SugarCRM · Pega · Freshsales · Pipedrive</div>
               </div>
             </div>
             <div class="arch-arrow">↕</div>
@@ -834,7 +837,7 @@
         <div class="module-card health fade-in fade-in-delay-1">
           <span class="module-badge badge-live">Live</span>
           <div class="module-icon">🩺</div>
-          <h3>Health Doctor</h3>
+          <h3>Vytal Scan</h3>
           <p>Connect any CRM org and get an AI-powered diagnostic report. Five scoring dimensions,
              weighted penalty analysis, and Claude-generated remediation playbooks — delivered in seconds.</p>
           <div class="module-tags">
@@ -890,14 +893,14 @@
     </div>
   </section>
 
-  <!-- ─── Health Doctor Deep Dive ─────────────────────────────── -->
+  <!-- ─── Vytal Scan Deep Dive ────────────────────────────────── -->
   <section class="section health-section" id="health">
     <div class="container">
       <div class="health-grid">
         <div class="health-text fade-in">
-          <span class="label">Health Doctor</span>
+          <span class="label">Vytal Scan</span>
           <h2>A full-body scan for your CRM org</h2>
-          <p>Most CRM audits are manual, expensive, and happen once a year. Vytal's Health Doctor
+          <p>Most CRM audits are manual, expensive, and happen once a year. Vytal Scan
              runs a programmatic deep scan in seconds — surfacing issues that would take a
              consultant weeks to find.</p>
 
@@ -1101,10 +1104,46 @@
         </div>
 
         <div class="compat-card fade-in fade-in-delay-4">
-          <div class="compat-logo" style="background:rgba(180,0,0,0.12);border:1px solid rgba(180,0,0,0.2);color:#f87171;font-size:0.85rem;">SBL</div>
+          <div class="compat-logo" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.2);color:#4ade80;font-size:0.85rem;">ZHO</div>
           <div>
-            <div class="compat-name">Siebel CRM</div>
-            <div class="compat-desc">Legacy REST / SOAP adapter. Business component metadata and view hierarchy analysis.</div>
+            <div class="compat-name">Zoho CRM</div>
+            <div class="compat-desc">REST API v6 adapter. Modules, workflows, roles, and field-level analytics.</div>
+          </div>
+          <span class="compat-status status-planned">Planned</span>
+        </div>
+
+        <div class="compat-card fade-in fade-in-delay-5">
+          <div class="compat-logo" style="background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.2);color:#fb923c;font-size:0.75rem;">SGR</div>
+          <div>
+            <div class="compat-name">SugarCRM</div>
+            <div class="compat-desc">REST v11 adapter. Module builder metadata, process definitions, and role audit.</div>
+          </div>
+          <span class="compat-status status-planned">Planned</span>
+        </div>
+
+        <div class="compat-card fade-in fade-in-delay-5">
+          <div class="compat-logo" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;font-size:0.85rem;">PGA</div>
+          <div>
+            <div class="compat-name">Pega CRM</div>
+            <div class="compat-desc">Pega API adapter. Case types, decision rules, operator profiles, and data model health.</div>
+          </div>
+          <span class="compat-status status-planned">Planned</span>
+        </div>
+
+        <div class="compat-card fade-in fade-in-delay-6">
+          <div class="compat-logo" style="background:rgba(20,184,166,0.12);border:1px solid rgba(20,184,166,0.2);color:#2dd4bf;font-size:0.75rem;">FRS</div>
+          <div>
+            <div class="compat-name">Freshsales</div>
+            <div class="compat-desc">Freshworks API adapter. Contact modules, journeys, automations, and team activity.</div>
+          </div>
+          <span class="compat-status status-planned">Planned</span>
+        </div>
+
+        <div class="compat-card fade-in fade-in-delay-7">
+          <div class="compat-logo" style="background:rgba(22,163,74,0.12);border:1px solid rgba(22,163,74,0.2);color:#86efac;font-size:0.75rem;">PPD</div>
+          <div>
+            <div class="compat-name">Pipedrive</div>
+            <div class="compat-desc">Pipedrive API v1 adapter. Pipelines, stages, activity types, and deal field hygiene.</div>
           </div>
           <span class="compat-status status-planned">Planned</span>
         </div>
