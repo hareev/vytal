@@ -35,3 +35,6 @@ pnpm-debug.log*
 CLAUDE.md
 dev.py
 tasks/*
+
+# Docs — ignore markdown, only ship the GitHub Pages site
+docs/*.md

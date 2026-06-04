@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vytal — AI-Powered CRM Intelligence Platform</title>
+  <meta name="description" content="Vytal is a headless CRM platform with an AI-powered health monitoring module. Unify, diagnose, and optimize every CRM in your stack." />
+  <meta property="og:title" content="Vytal — AI-Powered CRM Intelligence Platform" />
+  <meta property="og:description" content="Stop managing CRM chaos. Vytal gives you a unified, intelligent layer on top of every CRM you run — with AI health diagnostics, pipeline management, and more." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0a0a0a;
+      --bg-card:      #111111;
+      --bg-card-2:    #141414;
+      --bg-border:    #1e1e1e;
+      --bg-border-2:  #262626;
+      --text:         #f0f0f0;
+      --text-muted:   #888;
+      --text-dim:     #555;
+      --accent:       #2563EB;
+      --accent-glow:  rgba(37, 99, 235, 0.35);
+      --accent-light: #60a5fa;
+      --accent-2:     #7c3aed;
+      --accent-3:     #06b6d4;
+      --success:      #22c55e;
+      --warning:      #f59e0b;
+      --danger:       #ef4444;
+      --radius:       12px;
+      --radius-sm:    8px;
+      --radius-lg:    20px;
+      --nav-h:        64px;
+      --section-gap:  120px;
+      --transition:   0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ─── Typography ───────────────────────────────────────────── */
+    h1, h2, h3, h4 { line-height: 1.15; letter-spacing: -0.03em; font-weight: 700; }
+    h1 { font-size: clamp(2.6rem, 7vw, 5.5rem); }
+    h2 { font-size: clamp(1.9rem, 4vw, 3rem); }
+    h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); font-weight: 600; }
+    p  { color: var(--text-muted); font-size: 1.05rem; }
+
+    a { color: inherit; text-decoration: none; }
+
+    .label {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--accent-light);
+      background: rgba(37,99,235,0.12); border: 1px solid rgba(37,99,235,0.25);
+      padding: 4px 12px; border-radius: 100px;
+    }
+    .label::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent-light);
+      box-shadow: 0 0 8px var(--accent-light);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    /* ─── Nav ──────────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: var(--nav-h);
+      display: flex; align-items: center;
+      padding: 0 clamp(1.5rem, 5vw, 4rem);
+      border-bottom: 1px solid transparent;
+      transition: background var(--transition), border-color var(--transition), backdrop-filter var(--transition);
+    }
+    nav.scrolled {
+      background: rgba(10, 10, 10, 0.85);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-color: var(--bg-border);
+    }
+    .nav-inner {
+      width: 100%; max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--accent); display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .nav-logo-icon svg { width: 18px; height: 18px; }
+    .nav-links {
+      display: flex; align-items: center; gap: 2rem;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 0.9rem; color: var(--text-muted);
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px; border-radius: var(--radius-sm);
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      transition: all var(--transition); border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .btn-ghost {
+      color: var(--text-muted);
+      border-color: var(--bg-border-2);
+      background: transparent;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); background: rgba(255,255,255,0.04); }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+      box-shadow: 0 0 50px rgba(37,99,235,0.5);
+      transform: translateY(-1px);
+    }
+    .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* ─── Hero ─────────────────────────────────────────────────── */
+    .hero {
+      position: relative; overflow: hidden;
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: calc(var(--nav-h) + 4rem) clamp(1.5rem, 5vw, 4rem) 6rem;
+    }
+
+    /* Floating orbs */
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); opacity: 0.18; pointer-events: none;
+      animation: drift 12s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+      top: -200px; left: -100px;
+      animation-duration: 14s;
+    }
+    .orb-2 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, var(--accent-2) 0%, transparent 70%);
+      top: 100px; right: -150px;
+      animation-duration: 18s; animation-delay: -4s;
+    }
+    .orb-3 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, var(--accent-3) 0%, transparent 70%);
+      bottom: -100px; left: 30%;
+      animation-duration: 22s; animation-delay: -8s;
+    }
+    @keyframes drift {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33%       { transform: translate(30px, -20px) scale(1.05); }
+      66%       { transform: translate(-20px, 30px) scale(0.95); }
+    }
+
+    /* Grid overlay */
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 40%, transparent 100%);
+    }
+
+    .hero-content { position: relative; z-index: 1; max-width: 900px; }
+    .hero-label { margin-bottom: 1.5rem; }
+
+    .hero-headline {
+      margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, #ffffff 0%, #a0c4ff 40%, #7c3aed 70%, #2563EB 100%);
+      background-size: 300% 300%;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradShift 6s ease infinite;
+    }
+    @keyframes gradShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--text-muted);
+      max-width: 620px; margin: 0 auto 2.5rem;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex; align-items: center; justify-content: center;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .hero-actions .btn { padding: 14px 28px; font-size: 1rem; }
+
+    .hero-stats {
+      display: flex; justify-content: center; gap: clamp(2rem, 5vw, 4rem);
+      flex-wrap: wrap; margin-top: 5rem;
+      padding-top: 2.5rem;
+      border-top: 1px solid var(--bg-border);
+    }
+    .stat-item { text-align: center; }
+    .stat-number {
+      font-size: 2rem; font-weight: 700; letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #fff, var(--accent-light));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-label { font-size: 0.85rem; color: var(--text-dim); margin-top: 2px; }
+
+    /* ─── Layout helpers ───────────────────────────────────────── */
+    .section {
+      padding: var(--section-gap) clamp(1.5rem, 5vw, 4rem);
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .section-header { text-align: center; margin-bottom: 4rem; }
+    .section-header .label { margin-bottom: 1rem; }
+    .section-header h2 { margin-bottom: 1rem; }
+    .section-header p { max-width: 560px; margin: 0 auto; font-size: 1.1rem; }
+
+    /* ─── Fade-in animation ────────────────────────────────────── */
+    .fade-in {
+      opacity: 0; transform: translateY(28px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .fade-in.visible {
+      opacity: 1; transform: translateY(0);
+    }
+    .fade-in-delay-1 { transition-delay: 0.1s; }
+    .fade-in-delay-2 { transition-delay: 0.2s; }
+    .fade-in-delay-3 { transition-delay: 0.3s; }
+    .fade-in-delay-4 { transition-delay: 0.4s; }
+
+    /* ─── Pain points ──────────────────────────────────────────── */
+    .pain-section { background: var(--bg-card); border-top: 1px solid var(--bg-border); border-bottom: 1px solid var(--bg-border); }
+
+    .pain-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem;
+    }
+    .pain-card {
+      background: var(--bg);
+      border: 1px solid var(--bg-border-2);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+    .pain-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .pain-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--bg-border-2);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1.25rem; font-size: 1.3rem;
+    }
+    .pain-card h3 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--text); }
+    .pain-card p  { font-size: 0.9rem; line-height: 1.65; }
+
+    /* ─── Solution overview ────────────────────────────────────── */
+    .solution-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem; align-items: center;
+    }
+    @media (max-width: 768px) { .solution-grid { grid-template-columns: 1fr; } }
+
+    .solution-text .label { margin-bottom: 1rem; }
+    .solution-text h2 { margin-bottom: 1.25rem; }
+    .solution-text p { margin-bottom: 1.5rem; line-height: 1.8; }
+    .solution-feature-list { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+    .solution-feature-list li {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.95rem; color: var(--text-muted);
+    }
+    .check {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(37,99,235,0.15); border: 1px solid rgba(37,99,235,0.3);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent-light); font-size: 0.7rem;
+    }
+
+    .solution-visual {
+      position: relative;
+    }
+    .arch-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border-2);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+    }
+    .arch-diagram-title {
+      font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 1.5rem;
+      padding-bottom: 1rem; border-bottom: 1px solid var(--bg-border);
+    }
+    .arch-layer {
+      background: var(--bg-card-2);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .arch-layer:last-child { margin-bottom: 0; }
+    .arch-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .arch-layer-label { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+    .arch-layer-sub { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+    .arch-arrow {
+      text-align: center; padding: 4px 0;
+      color: var(--text-dim); font-size: 1.1rem;
+    }
+
+    /* ─── Modules ──────────────────────────────────────────────── */
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem;
+    }
+    .module-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      position: relative; overflow: hidden;
+      transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+      cursor: default;
+    }
+    .module-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--card-accent, var(--accent));
+      opacity: 0; transition: opacity var(--transition);
+    }
+    .module-card:hover { border-color: var(--card-accent, var(--accent)); transform: translateY(-4px); box-shadow: 0 20px 50px rgba(0,0,0,0.4); }
+    .module-card:hover::before { opacity: 1; }
+
+    .module-card.health   { --card-accent: #2563EB; }
+    .module-card.sales    { --card-accent: #22c55e; }
+    .module-card.marketing{ --card-accent: #f59e0b; }
+    .module-card.service  { --card-accent: #7c3aed; }
+
+    .module-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; margin-bottom: 1.25rem;
+      position: relative;
+    }
+    .module-card.health   .module-icon { background: rgba(37,99,235,0.12);  border: 1px solid rgba(37,99,235,0.25); }
+    .module-card.sales    .module-icon { background: rgba(34,197,94,0.12);   border: 1px solid rgba(34,197,94,0.25); }
+    .module-card.marketing.module-icon { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.25); }
+    .module-card.service  .module-icon { background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.25); }
+
+    .module-badge {
+      position: absolute; top: 1.5rem; right: 1.5rem;
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 8px; border-radius: 6px;
+    }
+    .badge-live    { background: rgba(34,197,94,0.15);  color: #4ade80;  border: 1px solid rgba(34,197,94,0.25); }
+    .badge-soon    { background: rgba(245,158,11,0.12); color: #fbbf24;  border: 1px solid rgba(245,158,11,0.2); }
+
+    .module-card h3 { margin-bottom: 0.6rem; }
+    .module-card p  { font-size: 0.9rem; line-height: 1.65; }
+    .module-tags {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 1.25rem;
+    }
+    .tag {
+      font-size: 0.75rem; color: var(--text-dim);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--bg-border);
+      padding: 3px 9px; border-radius: 6px;
+    }
+
+    /* ─── Health Doctor ─────────────────────────────────────────── */
+    .health-section { background: var(--bg-card); border-top: 1px solid var(--bg-border); border-bottom: 1px solid var(--bg-border); }
+
+    .health-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem; align-items: start;
+    }
+    @media (max-width: 900px) { .health-grid { grid-template-columns: 1fr; } }
+
+    .health-text .label { margin-bottom: 1rem; }
+    .health-text h2 { margin-bottom: 1.25rem; }
+    .health-text p  { margin-bottom: 1.5rem; line-height: 1.8; }
+
+    .pipeline-list { list-style: none; display: flex; flex-direction: column; gap: 1rem; }
+    .pipeline-step {
+      display: flex; gap: 1rem; align-items: flex-start;
+    }
+    .step-num {
+      width: 26px; height: 26px; flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--accent); color: #fff;
+      font-size: 0.75rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-body strong { display: block; font-size: 0.9rem; color: var(--text); }
+    .step-body span { font-size: 0.82rem; color: var(--text-dim); }
+
+    .scores-panel {
+      background: var(--bg);
+      border: 1px solid var(--bg-border-2);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.4);
+    }
+    .scores-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.75rem;
+    }
+    .scores-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+    .overall-score {
+      text-align: right;
+    }
+    .overall-num {
+      font-size: 2.2rem; font-weight: 800; letter-spacing: -0.05em;
+      background: linear-gradient(135deg, #22c55e, #4ade80);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .overall-label { font-size: 0.72rem; color: var(--text-dim); }
+
+    .score-row { margin-bottom: 1.1rem; }
+    .score-row:last-child { margin-bottom: 0; }
+    .score-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    .score-name { font-size: 0.85rem; color: var(--text-muted); }
+    .score-val {
+      font-size: 0.85rem; font-weight: 700;
+    }
+    .score-bar-bg {
+      height: 6px; border-radius: 100px;
+      background: var(--bg-border-2); overflow: hidden;
+    }
+    .score-bar-fill {
+      height: 100%; border-radius: 100px;
+      background: var(--bar-color, var(--accent));
+      width: 0%;
+      transition: width 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .ai-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 1.5rem;
+      font-size: 0.78rem; color: var(--accent-light);
+      background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.2);
+      padding: 6px 12px; border-radius: 8px;
+    }
+    .ai-badge svg { width: 14px; height: 14px; }
+
+    /* ─── CRM Compatibility ────────────────────────────────────── */
+    .compat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+    .compat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      display: flex; flex-direction: column; gap: 1rem;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+    .compat-card:hover { border-color: var(--bg-border-2); transform: translateY(-3px); }
+    .compat-logo {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; font-weight: 700;
+    }
+    .compat-name { font-size: 1rem; font-weight: 700; }
+    .compat-desc { font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
+    .compat-status {
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em;
+      padding: 4px 10px; border-radius: 6px; display: inline-block; width: fit-content;
+    }
+    .status-live    { background: rgba(34,197,94,0.1);  color: #4ade80;  border: 1px solid rgba(34,197,94,0.2); }
+    .status-beta    { background: rgba(37,99,235,0.1);  color: #93c5fd;  border: 1px solid rgba(37,99,235,0.2); }
+    .status-planned { background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid var(--bg-border); }
+
+    /* ─── CTA ──────────────────────────────────────────────────── */
+    .cta-section {
+      text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .cta-section::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(37,99,235,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-section .container { position: relative; z-index: 1; }
+    .cta-section .label { margin-bottom: 1.5rem; }
+    .cta-section h2 { margin-bottom: 1.25rem; }
+    .cta-section p { font-size: 1.1rem; max-width: 500px; margin: 0 auto 2.5rem; }
+    .cta-actions {
+      display: flex; align-items: center; justify-content: center;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .cta-actions .btn { padding: 15px 32px; font-size: 1rem; }
+    .cta-note {
+      margin-top: 1.5rem;
+      font-size: 0.82rem; color: var(--text-dim);
+    }
+
+    /* ─── Footer ───────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--bg-border);
+      padding: 3rem clamp(1.5rem, 5vw, 4rem);
+    }
+    .footer-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1.5rem;
+    }
+    .footer-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1rem; font-weight: 700;
+    }
+    .footer-logo-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .footer-logo-icon svg { width: 14px; height: 14px; }
+    .footer-links {
+      display: flex; gap: 1.5rem; list-style: none; flex-wrap: wrap;
+    }
+    .footer-links a { font-size: 0.85rem; color: var(--text-dim); transition: color var(--transition); }
+    .footer-links a:hover { color: var(--text-muted); }
+    .footer-copy { font-size: 0.82rem; color: var(--text-dim); }
+
+    /* ─── Divider ──────────────────────────────────────────────── */
+    .divider {
+      width: 100%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--bg-border), transparent);
+      margin: 0;
+    }
+
+    /* ─── Responsive ───────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      :root { --section-gap: 80px; }
+      .nav-links { display: none; }
+      .hero-stats { gap: 2rem; }
+      .solution-grid, .health-grid { grid-template-columns: 1fr; }
+      .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+    @media (max-width: 480px) {
+      :root { --section-gap: 60px; }
+      .hero-actions { flex-direction: column; align-items: stretch; }
+      .hero-actions .btn { justify-content: center; }
+      .cta-actions { flex-direction: column; align-items: stretch; }
+      .cta-actions .btn { justify-content: center; }
+    }
+
+    /* ─── Scrollbar ────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-border-2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Navigation ─────────────────────────────────────────── -->
+  <nav id="main-nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <div class="nav-logo-icon">
+          <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 5 L9 13 L14 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="9" cy="9" r="1.5" fill="white" opacity="0.7"/>
+          </svg>
+        </div>
+        Vytal
+      </a>
+      <ul class="nav-links">
+        <li><a href="#pain">Problem</a></li>
+        <li><a href="#solution">Platform</a></li>
+        <li><a href="#modules">Modules</a></li>
+        <li><a href="#health">Health Doctor</a></li>
+        <li><a href="#compatibility">Integrations</a></li>
+      </ul>
+      <div class="nav-cta">
+        <a href="https://github.com/hareev/vytal" target="_blank" rel="noopener noreferrer" class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          GitHub
+        </a>
+        <a href="https://github.com/hareev/vytal" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          Get Started
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── Hero ───────────────────────────────────────────────── -->
+  <section class="hero" id="hero">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="hero-content">
+      <div class="hero-label">
+        <span class="label">v0.3.0 — Open Source</span>
+      </div>
+
+      <h1 class="hero-headline">
+        Your CRM stack is<br>a ticking time bomb.
+      </h1>
+
+      <p class="hero-sub">
+        Vytal is a headless CRM intelligence platform that sits above every CRM you run.
+        AI-powered health diagnostics, unified pipeline management, and actionable insights —
+        all without ripping out your existing systems.
+      </p>
+
+      <div class="hero-actions">
+        <a href="https://github.com/hareev/vytal" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          Star on GitHub
+        </a>
+        <a href="#modules" class="btn btn-ghost">
+          Explore modules
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>
+        </a>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-item">
+          <div class="stat-number">5</div>
+          <div class="stat-label">Scoring dimensions</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">4</div>
+          <div class="stat-label">CRM platforms</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">4</div>
+          <div class="stat-label">Core modules</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">AI</div>
+          <div class="stat-label">Claude-powered</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── Pain Points ─────────────────────────────────────────── -->
+  <section class="section pain-section" id="pain">
+    <div class="container">
+      <div class="section-header fade-in">
+        <span class="label">The Problem</span>
+        <h2>CRM sprawl is silently killing productivity</h2>
+        <p>The average enterprise runs 3–12 CRMs. Each one is a black box of technical debt,
+           ungoverned customizations, and data decay.</p>
+      </div>
+
+      <div class="pain-grid">
+        <div class="pain-card fade-in fade-in-delay-1">
+          <div class="pain-icon">🕸️</div>
+          <h3>Schema entropy</h3>
+          <p>Thousands of custom fields, duplicate entities, and legacy configurations
+             accumulate over years of unchecked growth, making every change a minefield.</p>
+        </div>
+        <div class="pain-card fade-in fade-in-delay-2">
+          <div class="pain-icon">⚡</div>
+          <h3>Automation chaos</h3>
+          <p>Circular workflows, stale flows, and automations with no error handling
+             run silently in production — you don't know they're broken until they cost you a deal.</p>
+        </div>
+        <div class="pain-card fade-in fade-in-delay-3">
+          <div class="pain-icon">📉</div>
+          <h3>Data rot</h3>
+          <p>Duplicate contacts, incomplete required fields, and outdated records erode
+             forecast accuracy and damage customer relationships across every team.</p>
+        </div>
+        <div class="pain-card fade-in fade-in-delay-4">
+          <div class="pain-icon">🔐</div>
+          <h3>Security blind spots</h3>
+          <p>Dormant admin accounts, misconfigured roles, and absent audit trails leave your
+             CRM org exposed — often invisible until a compliance review or breach.</p>
+        </div>
+        <div class="pain-card fade-in fade-in-delay-1">
+          <div class="pain-icon">👻</div>
+          <h3>Adoption decay</h3>
+          <p>Seats you pay for sit unused. Features deployed at go-live are abandoned months later.
+             You're paying for a CRM your team barely uses.</p>
+        </div>
+        <div class="pain-card fade-in fade-in-delay-2">
+          <div class="pain-icon">🗂️</div>
+          <h3>No unified view</h3>
+          <p>Sales lives in Salesforce. Service lives in D365. Marketing in HubSpot.
+             Leadership sees nothing — or worse, contradictory reports from all three.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Solution ────────────────────────────────────────────── -->
+  <section class="section" id="solution">
+    <div class="container">
+      <div class="solution-grid">
+        <div class="solution-text fade-in">
+          <span class="label">The Solution</span>
+          <h2>One intelligent layer above all your CRMs</h2>
+          <p>Vytal doesn't replace your CRMs — it makes them legible. Connect any org,
+             let the AI run a deep health scan across five critical dimensions, and get
+             a prioritized remediation plan in minutes.</p>
+          <p>Then use Vytal's built-in Sales, Marketing, and Service modules as your unified
+             operating layer — or keep using your existing tools. Headless by design.</p>
+          <ul class="solution-feature-list">
+            <li>
+              <span class="check">✓</span>
+              AI-generated diagnosis powered by Claude
+            </li>
+            <li>
+              <span class="check">✓</span>
+              5-dimension health scoring with weighted penalty model
+            </li>
+            <li>
+              <span class="check">✓</span>
+              Real-time Dataverse Web API + OData v4 integration
+            </li>
+            <li>
+              <span class="check">✓</span>
+              Headless architecture — bring your own frontend or use ours
+            </li>
+            <li>
+              <span class="check">✓</span>
+              JWT-secured REST API with Neon serverless PostgreSQL
+            </li>
+            <li>
+              <span class="check">✓</span>
+              Full mock mode for zero-backend demos
+            </li>
+          </ul>
+        </div>
+
+        <div class="solution-visual fade-in fade-in-delay-2">
+          <div class="arch-diagram">
+            <div class="arch-diagram-title">Platform Architecture</div>
+            <div class="arch-layer">
+              <div class="arch-dot" style="background:#2563EB;box-shadow:0 0 8px #2563EB;"></div>
+              <div>
+                <div class="arch-layer-label">Vytal AI Layer</div>
+                <div class="arch-layer-sub">Claude API · Health scoring · Diagnosis</div>
+              </div>
+            </div>
+            <div class="arch-arrow">↕</div>
+            <div class="arch-layer">
+              <div class="arch-dot" style="background:#7c3aed;box-shadow:0 0 8px #7c3aed;"></div>
+              <div>
+                <div class="arch-layer-label">Hono REST API</div>
+                <div class="arch-layer-sub">JWT auth · Drizzle ORM · Neon Postgres</div>
+              </div>
+            </div>
+            <div class="arch-arrow">↕</div>
+            <div class="arch-layer">
+              <div class="arch-dot" style="background:#06b6d4;box-shadow:0 0 8px #06b6d4;"></div>
+              <div>
+                <div class="arch-layer-label">CRM Adapter layer</div>
+                <div class="arch-layer-sub">D365 · Salesforce · HubSpot · Siebel</div>
+              </div>
+            </div>
+            <div class="arch-arrow">↕</div>
+            <div class="arch-layer">
+              <div class="arch-dot" style="background:#22c55e;box-shadow:0 0 8px #22c55e;"></div>
+              <div>
+                <div class="arch-layer-label">React SPA</div>
+                <div class="arch-layer-sub">Zustand · Recharts · Vite · TypeScript</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── Modules ─────────────────────────────────────────────── -->
+  <section class="section" id="modules">
+    <div class="container">
+      <div class="section-header fade-in">
+        <span class="label">Core Modules</span>
+        <h2>Everything your revenue org needs</h2>
+        <p>Four integrated modules. One platform. Deploy all of them or just what you need.</p>
+      </div>
+
+      <div class="modules-grid">
+        <div class="module-card health fade-in fade-in-delay-1">
+          <span class="module-badge badge-live">Live</span>
+          <div class="module-icon">🩺</div>
+          <h3>Health Doctor</h3>
+          <p>Connect any CRM org and get an AI-powered diagnostic report. Five scoring dimensions,
+             weighted penalty analysis, and Claude-generated remediation playbooks — delivered in seconds.</p>
+          <div class="module-tags">
+            <span class="tag">AI Scoring</span>
+            <span class="tag">D365</span>
+            <span class="tag">Salesforce</span>
+            <span class="tag">Claude API</span>
+          </div>
+        </div>
+
+        <div class="module-card sales fade-in fade-in-delay-2">
+          <span class="module-badge badge-live">Live</span>
+          <div class="module-icon">📊</div>
+          <h3>Sales</h3>
+          <p>Drag-and-drop Kanban pipeline with multi-stage deal management and a searchable
+             contacts table. Paginated, filtered, and wired to the REST API or mock mode out of the box.</p>
+          <div class="module-tags">
+            <span class="tag">Kanban</span>
+            <span class="tag">Contacts</span>
+            <span class="tag">Pipelines</span>
+            <span class="tag">Deals</span>
+          </div>
+        </div>
+
+        <div class="module-card marketing fade-in fade-in-delay-3">
+          <span class="module-badge badge-live">Live</span>
+          <div class="module-icon">📣</div>
+          <h3>Marketing</h3>
+          <p>Run email, SMS, and push campaigns against defined audience segments.
+             Build multi-step automation sequences with per-step timing and action configuration.</p>
+          <div class="module-tags">
+            <span class="tag">Campaigns</span>
+            <span class="tag">Segments</span>
+            <span class="tag">Sequences</span>
+            <span class="tag">Automation</span>
+          </div>
+        </div>
+
+        <div class="module-card service fade-in fade-in-delay-4">
+          <span class="module-badge badge-live">Live</span>
+          <div class="module-icon">🎧</div>
+          <h3>Service</h3>
+          <p>Full support ticket system with SLA policy tracking, priority queues, conversation threads,
+             and status management — from open to resolved with full message history.</p>
+          <div class="module-tags">
+            <span class="tag">Tickets</span>
+            <span class="tag">SLA</span>
+            <span class="tag">Conversations</span>
+            <span class="tag">Priorities</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Health Doctor Deep Dive ─────────────────────────────── -->
+  <section class="section health-section" id="health">
+    <div class="container">
+      <div class="health-grid">
+        <div class="health-text fade-in">
+          <span class="label">Health Doctor</span>
+          <h2>A full-body scan for your CRM org</h2>
+          <p>Most CRM audits are manual, expensive, and happen once a year. Vytal's Health Doctor
+             runs a programmatic deep scan in seconds — surfacing issues that would take a
+             consultant weeks to find.</p>
+
+          <ul class="pipeline-list">
+            <li class="pipeline-step">
+              <span class="step-num">1</span>
+              <div class="step-body">
+                <strong>Connect</strong>
+                <span>OAuth2 or token-based connection to your CRM org</span>
+              </div>
+            </li>
+            <li class="pipeline-step">
+              <span class="step-num">2</span>
+              <div class="step-body">
+                <strong>Fetch</strong>
+                <span>Parallel API calls pull schema, flows, users, and security config</span>
+              </div>
+            </li>
+            <li class="pipeline-step">
+              <span class="step-num">3</span>
+              <div class="step-body">
+                <strong>Score</strong>
+                <span>5-dimension penalty model produces a 0–100 composite score</span>
+              </div>
+            </li>
+            <li class="pipeline-step">
+              <span class="step-num">4</span>
+              <div class="step-body">
+                <strong>Diagnose</strong>
+                <span>Claude analyzes the payload and generates a prioritized action plan</span>
+              </div>
+            </li>
+          </ul>
+
+          <div class="ai-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+            Diagnosis generated by Claude — Anthropic's AI
+          </div>
+        </div>
+
+        <div class="fade-in fade-in-delay-2">
+          <div class="scores-panel" id="scores-panel">
+            <div class="scores-header">
+              <span class="scores-title">Health Score — Contoso D365 Org</span>
+              <div class="overall-score">
+                <div class="overall-num">74</div>
+                <div class="overall-label">/ 100 · Good</div>
+              </div>
+            </div>
+
+            <div class="score-row">
+              <div class="score-meta">
+                <span class="score-name">Schema Hygiene</span>
+                <span class="score-val" style="color:#f59e0b;">68</span>
+              </div>
+              <div class="score-bar-bg">
+                <div class="score-bar-fill" data-width="68" style="--bar-color:#f59e0b;"></div>
+              </div>
+            </div>
+
+            <div class="score-row">
+              <div class="score-meta">
+                <span class="score-name">Automation Complexity</span>
+                <span class="score-val" style="color:#ef4444;">55</span>
+              </div>
+              <div class="score-bar-bg">
+                <div class="score-bar-fill" data-width="55" style="--bar-color:#ef4444;"></div>
+              </div>
+            </div>
+
+            <div class="score-row">
+              <div class="score-meta">
+                <span class="score-name">Data Quality</span>
+                <span class="score-val" style="color:#22c55e;">82</span>
+              </div>
+              <div class="score-bar-bg">
+                <div class="score-bar-fill" data-width="82" style="--bar-color:#22c55e;"></div>
+              </div>
+            </div>
+
+            <div class="score-row">
+              <div class="score-meta">
+                <span class="score-name">Security</span>
+                <span class="score-val" style="color:#22c55e;">91</span>
+              </div>
+              <div class="score-bar-bg">
+                <div class="score-bar-fill" data-width="91" style="--bar-color:#22c55e;"></div>
+              </div>
+            </div>
+
+            <div class="score-row">
+              <div class="score-meta">
+                <span class="score-name">User Adoption</span>
+                <span class="score-val" style="color:#2563EB;">73</span>
+              </div>
+              <div class="score-bar-bg">
+                <div class="score-bar-fill" data-width="73" style="--bar-color:#2563EB;"></div>
+              </div>
+            </div>
+
+            <div style="margin-top:1.75rem; padding-top:1.25rem; border-top:1px solid var(--bg-border);">
+              <div style="font-size:0.78rem; color:var(--text-dim); margin-bottom:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;">AI Triage — Top Findings</div>
+              <div style="display:flex;flex-direction:column;gap:0.6rem;">
+                <div style="display:flex;gap:8px;align-items:flex-start;">
+                  <span style="color:#ef4444;font-size:0.8rem;margin-top:2px;flex-shrink:0;">●</span>
+                  <span style="font-size:0.82rem;color:var(--text-muted);">3 circular automation flows detected in Opportunity stage transitions</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-start;">
+                  <span style="color:#f59e0b;font-size:0.8rem;margin-top:2px;flex-shrink:0;">●</span>
+                  <span style="font-size:0.82rem;color:var(--text-muted);">142 custom entities exceed recommended naming convention</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-start;">
+                  <span style="color:#22c55e;font-size:0.8rem;margin-top:2px;flex-shrink:0;">●</span>
+                  <span style="font-size:0.82rem;color:var(--text-muted);">Security baseline strong — audit logging enabled, MFA enforced</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scoring dimensions table -->
+      <div style="margin-top:4rem;">
+        <div class="section-header fade-in" style="margin-bottom:2rem;">
+          <h3 style="font-size:1.25rem;">The 5-Dimension Scoring Model</h3>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;" class="fade-in">
+          <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
+            <div style="font-size:1.5rem;margin-bottom:0.75rem;">🏗️</div>
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Schema Hygiene</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">25% weight</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);">Custom entity ratio, naming violations, deprecated fields</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
+            <div style="font-size:1.5rem;margin-bottom:0.75rem;">⚙️</div>
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Automation Complexity</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">25% weight</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);">Circular dependencies, inactive flows, missing error handling</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
+            <div style="font-size:1.5rem;margin-bottom:0.75rem;">📋</div>
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Data Quality</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">20% weight</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);">Duplicate rate, incomplete required fields, stale records</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
+            <div style="font-size:1.5rem;margin-bottom:0.75rem;">🔒</div>
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Security</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">20% weight</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);">Dormant admins, admin ratio, MFA status, audit logging</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
+            <div style="font-size:1.5rem;margin-bottom:0.75rem;">👥</div>
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">User Adoption</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">10% weight</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);">Active user ratio, feature utilization, login frequency</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CRM Compatibility ────────────────────────────────────── -->
+  <section class="section" id="compatibility">
+    <div class="container">
+      <div class="section-header fade-in">
+        <span class="label">Integrations</span>
+        <h2>Works with the CRMs you already run</h2>
+        <p>Native adapter architecture — each CRM gets a purpose-built connector
+           that speaks its native API. No middleware, no translation layers.</p>
+      </div>
+
+      <div class="compat-grid">
+        <div class="compat-card fade-in fade-in-delay-1">
+          <div class="compat-logo" style="background:rgba(0,120,212,0.15);border:1px solid rgba(0,120,212,0.25);color:#2563EB;font-size:1.1rem;">D365</div>
+          <div>
+            <div class="compat-name">Dynamics 365</div>
+            <div class="compat-desc">Full Dataverse Web API v4 (OData) integration. Schema, flows, security, and user data.</div>
+          </div>
+          <span class="compat-status status-live">Live</span>
+        </div>
+
+        <div class="compat-card fade-in fade-in-delay-2">
+          <div class="compat-logo" style="background:rgba(0,161,224,0.12);border:1px solid rgba(0,161,224,0.2);color:#38bdf8;font-size:1rem;">SF</div>
+          <div>
+            <div class="compat-name">Salesforce</div>
+            <div class="compat-desc">REST API + Metadata API adapter. Objects, flows, profiles, and usage analytics.</div>
+          </div>
+          <span class="compat-status status-beta">In progress</span>
+        </div>
+
+        <div class="compat-card fade-in fade-in-delay-3">
+          <div class="compat-logo" style="background:rgba(255,122,0,0.12);border:1px solid rgba(255,122,0,0.2);color:#fb923c;font-size:0.9rem;">Hub</div>
+          <div>
+            <div class="compat-name">HubSpot</div>
+            <div class="compat-desc">CRM API v3 adapter. Properties, workflows, teams, and engagement data.</div>
+          </div>
+          <span class="compat-status status-planned">Planned</span>
+        </div>
+
+        <div class="compat-card fade-in fade-in-delay-4">
+          <div class="compat-logo" style="background:rgba(180,0,0,0.12);border:1px solid rgba(180,0,0,0.2);color:#f87171;font-size:0.85rem;">SBL</div>
+          <div>
+            <div class="compat-name">Siebel CRM</div>
+            <div class="compat-desc">Legacy REST / SOAP adapter. Business component metadata and view hierarchy analysis.</div>
+          </div>
+          <span class="compat-status status-planned">Planned</span>
+        </div>
+      </div>
+
+      <div style="margin-top:3rem;text-align:center;" class="fade-in">
+        <p style="font-size:0.9rem;color:var(--text-dim);">
+          More adapters coming. The <code style="background:var(--bg-card);border:1px solid var(--bg-border);padding:2px 7px;border-radius:5px;font-size:0.85rem;color:var(--accent-light);">BaseAdapter</code>
+          interface makes it straightforward to add any CRM with a REST or OData API.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── CTA ─────────────────────────────────────────────────── -->
+  <section class="section cta-section" id="cta">
+    <div class="container">
+      <span class="label">Open Source</span>
+      <h2>Start diagnosing your CRM today</h2>
+      <p>Vytal is fully open source. Clone it, deploy it, extend it.
+         No vendor lock-in. No per-seat pricing. Just a better way to manage CRM complexity.</p>
+      <div class="cta-actions">
+        <a href="https://github.com/hareev/vytal" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          View on GitHub
+        </a>
+        <a href="https://github.com/hareev/vytal/blob/main/README.md" target="_blank" rel="noopener noreferrer" class="btn btn-ghost">
+          Read the docs
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+      <p class="cta-note">MIT licensed · Built with React, Hono, Drizzle ORM, and Claude API</p>
+    </div>
+  </section>
+
+  <!-- ─── Footer ──────────────────────────────────────────────── -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-logo">
+        <div class="footer-logo-icon">
+          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 4 L7 10 L11 4" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        Vytal
+      </div>
+
+      <ul class="footer-links">
+        <li><a href="https://github.com/hareev/vytal" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+        <li><a href="https://github.com/hareev/vytal/issues" target="_blank" rel="noopener noreferrer">Issues</a></li>
+        <li><a href="https://github.com/hareev/vytal/blob/main/CLAUDE.md" target="_blank" rel="noopener noreferrer">Docs</a></li>
+      </ul>
+
+      <span class="footer-copy">v0.3.0 · MIT License · 2025</span>
+    </div>
+  </footer>
+
+  <script>
+    // ─── Sticky nav ────────────────────────────────────────────
+    const nav = document.getElementById('main-nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 20);
+    }, { passive: true });
+
+    // ─── IntersectionObserver fade-in ──────────────────────────
+    const fadeEls = document.querySelectorAll('.fade-in');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    fadeEls.forEach(el => observer.observe(el));
+
+    // ─── Score bar animation ───────────────────────────────────
+    const scorePanel = document.getElementById('scores-panel');
+    let barsAnimated = false;
+    const barObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !barsAnimated) {
+          barsAnimated = true;
+          document.querySelectorAll('.score-bar-fill').forEach(bar => {
+            const w = bar.getAttribute('data-width');
+            // Small delay so the panel fade-in completes first
+            setTimeout(() => { bar.style.width = w + '%'; }, 400);
+          });
+        }
+      });
+    }, { threshold: 0.4 });
+    if (scorePanel) barObserver.observe(scorePanel);
+
+    // ─── Smooth anchor scroll (offset for sticky nav) ─────────
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        const target = document.querySelector(this.getAttribute('href'));
+        if (!target) return;
+        e.preventDefault();
+        const offset = 80;
+        const top = target.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top, behavior: 'smooth' });
+      });
+    });
+  </script>
+</body>
+</html>
