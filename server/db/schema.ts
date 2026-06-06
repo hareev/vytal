@@ -381,3 +381,28 @@ export const channel_events = pgTable('channel_events', {
   processed_at: timestamp('processed_at'),
   created_at: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// integrations — connected provider accounts (Gmail, Outlook, Slack, Teams)
+// ---------------------------------------------------------------------------
+export const integrations = pgTable('integrations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  org_id: uuid('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  provider: text('provider', {
+    enum: ['gmail', 'outlook', 'slack', 'teams'],
+  }).notNull(),
+  account_label: text('account_label'),
+  access_token: text('access_token').notNull(),
+  refresh_token: text('refresh_token'),
+  token_expires_at: timestamp('token_expires_at'),
+  scope: text('scope'),
+  config: jsonb('config').notNull().default('{}'),
+  status: text('status', {
+    enum: ['active', 'error', 'revoked'],
+  }).notNull().default('active'),
+  last_synced_at: timestamp('last_synced_at'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});

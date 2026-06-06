@@ -3,7 +3,7 @@ import type { Campaign, Segment, Sequence, SequenceStep } from '@/types/marketin
 import type { Ticket, TicketMessage } from '@/types/service'
 import type { User, Org } from '@/types/auth'
 import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
-import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata } from '@/types/captures'
+import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata, AcceptCaptureOptions, AcceptCaptureResult } from '@/types/captures'
 import type { ListParams, AuthLoginResponse, AuthRegisterResponse, MeResponse } from './client'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -615,6 +615,45 @@ const CAPTURES_SEED: ChannelCapture[] = [
     createdAt: daysAgo(3),
     updatedAt: daysAgo(3),
   },
+  {
+    id: 'cap-06',
+    orgId: DEMO_ORG_ID,
+    channelType: 'call_transcript',
+    status: 'ready',
+    rawContent: `[Discovery call — 30 min]\n\nRep: Hi Michael, thanks for joining. Can you tell me a bit about your team's current setup?\n\nMichael Torres: Sure. I'm the CTO at Nexus Labs — we're a 60-person deep tech company. We currently use spreadsheets for pipeline tracking, which is getting painful. Alice Johnson from TechCorp actually recommended you.\n\nRep: Great to hear! What's your main pain point?\n\nMichael: Visibility across the sales team. We have five reps with no shared system. Also, we're thinking about building a customer portal — I'd love to know if Vytal has API access.\n\nRep: Absolutely — headless API is a core part of the product. What's your timeline?\n\nMichael: We're hoping to be live within 6 weeks. Budget is around $30,000 for the year, maybe more if the API layer covers our needs.\n\nRep: That's very achievable. Let me send over our technical docs and schedule a follow-up with your team.\n\nMichael Torres | CTO | Nexus Labs\nmichael.torres@nexuslabs.io`,
+    metadata: {
+      duration: 30,
+      participants: ['Michael Torres', 'Rep (Acme)'],
+    },
+    extraction: {
+      summary: 'Discovery call with Michael Torres (CTO, Nexus Labs — 60 people). Referred by Alice Johnson at TechCorp. Main pain: no shared pipeline visibility across 5 reps, currently using spreadsheets. Interested in headless API for a customer portal. Budget ~$30k/year, timeline 6 weeks.',
+      sentiment: 'positive',
+      intent: 'sales',
+      topics: ['pipeline visibility', 'API access', 'customer portal', 'discovery', 'referral'],
+      contacts: [
+        { name: 'Alice Johnson', email: 'alice@techcorp.io', company: 'TechCorp', role: 'VP Operations', existingContactId: 'c01' },
+        { name: 'Michael Torres', email: 'michael.torres@nexuslabs.io', company: 'Nexus Labs', role: 'CTO' },
+      ],
+      actionItems: [
+        { description: 'Send Vytal API documentation to Michael Torres', owner: 'Sales', dueHint: 'today', completed: false },
+        { description: 'Schedule technical follow-up call with Nexus Labs engineering team', owner: 'Sales / Solutions', dueHint: 'this week', completed: false },
+      ],
+      dealSignals: [
+        { mentionedValue: '$30,000/year', mentionedTimeline: '6-week go-live', stageSuggestion: 'Qualified' },
+      ],
+      keyPoints: [
+        'Referred by Alice Johnson (TechCorp) — warm inbound',
+        '60-person deep tech company, 5 sales reps with no shared CRM',
+        'Headless API is a must-have for customer portal plans',
+        '$30k budget approved, 6-week timeline',
+        'Michael Torres is the technical decision-maker',
+      ],
+    },
+    linkedContactIds: ['c01'],
+    linkedDealIds: [],
+    createdAt: daysAgo(0),
+    updatedAt: daysAgo(0),
+  },
 ]
 
 const captureMap = new Map<string, ChannelCapture>(CAPTURES_SEED.map((c) => [c.id, c]))
@@ -1028,18 +1067,58 @@ class MockApiClient {
       return resolve(updated)
     },
 
-    accept: (id: string): Promise<ChannelCapture> => {
+    accept: (id: string, opts?: AcceptCaptureOptions): Promise<AcceptCaptureResult> => {
       const existing = captureMap.get(id)
       if (!existing) return Promise.reject(new Error(`Capture ${id} not found`))
+
+      const contacts = existing.extraction?.contacts ?? []
+      const actionItems = existing.extraction?.actionItems ?? []
+      const dealSignals = existing.extraction?.dealSignals ?? []
+
+      const indicesToCreate = opts?.createContactIndices ?? contacts
+        .map((_, i) => i)
+        .filter((i) => !contacts[i].existingContactId)
+      const createTasks = opts?.createTasks ?? true
+      const createDeal = opts?.createDeal ?? false
+
+      // Simulate new contacts
+      const newContactIds = indicesToCreate.map(() => `c-new-${uid()}`)
+      newContactIds.forEach((newId, i) => {
+        const extracted = contacts[indicesToCreate[i]]
+        const [firstName, ...rest] = extracted.name.split(' ')
+        contactMap.set(newId, {
+          id: newId,
+          orgId: DEMO_ORG_ID,
+          firstName,
+          lastName: rest.join(' '),
+          email: extracted.email ?? '',
+          company: extracted.company,
+          status: 'lead',
+          ownerId: DEMO_USER_ID,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      })
+
+      const createdTaskCount = createTasks ? actionItems.length : 0
+      const createdDeal = createDeal && dealSignals.length > 0
+
       const updated: ChannelCapture = {
         ...existing,
         status: 'accepted',
         acceptedAt: new Date(),
         linkedActivityId: `activity-mock-${uid()}`,
+        linkedContactIds: [...existing.linkedContactIds, ...newContactIds],
+        linkedDealIds: createdDeal ? [`deal-mock-${uid()}`] : existing.linkedDealIds,
         updatedAt: new Date(),
       }
       captureMap.set(id, updated)
-      return resolve(updated)
+      return resolve({
+        capture: updated,
+        createdContactCount: newContactIds.length,
+        createdTaskCount,
+        createdDeal,
+      })
     },
 
     dismiss: (id: string): Promise<ChannelCapture> => {

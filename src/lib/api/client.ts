@@ -3,7 +3,8 @@ import type { Campaign, Segment, Sequence, SequenceStep } from '@/types/marketin
 import type { Ticket, TicketMessage } from '@/types/service'
 import type { User, Org } from '@/types/auth'
 import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
-import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata } from '@/types/captures'
+import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata, AcceptCaptureOptions, AcceptCaptureResult } from '@/types/captures'
+import type { Integration } from '@/types/integrations'
 
 // ─── Request / Response shapes ────────────────────────────────────────────────
 
@@ -275,14 +276,27 @@ export class ApiClient {
     process: (id: string): Promise<ChannelCapture> =>
       this.request<ChannelCapture>('POST', `/captures/${id}/process`),
 
-    accept: (id: string): Promise<ChannelCapture> =>
-      this.request<ChannelCapture>('POST', `/captures/${id}/accept`),
+    accept: (id: string, opts?: AcceptCaptureOptions): Promise<AcceptCaptureResult> =>
+      this.request<AcceptCaptureResult>('POST', `/captures/${id}/accept`, opts ?? {}),
 
     dismiss: (id: string): Promise<ChannelCapture> =>
       this.request<ChannelCapture>('POST', `/captures/${id}/dismiss`),
 
     ingest: (data: { channelType: ChannelType; rawContent: string; metadata?: CaptureMetadata }): Promise<{ captureId: string; status: string }> =>
       this.request<{ captureId: string; status: string }>('POST', '/captures/ingest', data),
+  }
+
+  // ─── Integrations ──────────────────────────────────────────────────────────
+
+  integrations = {
+    list: (): Promise<Integration[]> =>
+      this.request<Integration[]>('GET', '/integrations'),
+
+    disconnect: (provider: string): Promise<void> =>
+      this.request<void>('DELETE', `/integrations/${provider}`),
+
+    sync: (provider: string): Promise<void> =>
+      this.request<void>('POST', `/integrations/${provider}/sync`),
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────

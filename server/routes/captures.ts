@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { processCapture } from '../lib/captureProcessor.js';
@@ -264,11 +264,19 @@ router.post('/:id/process', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /captures/:id/accept — create Activity + link everything
+// POST /captures/:id/accept — create Activity + contacts + tasks + optional deal
 // ---------------------------------------------------------------------------
-router.post('/:id/accept', async (c) => {
+
+const acceptBodySchema = z.object({
+  createContactIndices: z.array(z.number()).optional().default([]),
+  createTasks: z.boolean().optional().default(true),
+  createDeal: z.boolean().optional().default(false),
+});
+
+router.post('/:id/accept', zValidator('json', acceptBodySchema), async (c) => {
   const auth = c.get('auth');
   const { id } = c.req.param();
+  const body = c.req.valid('json');
 
   const [capture] = await db
     .select()
@@ -288,22 +296,49 @@ router.post('/:id/accept', async (c) => {
     summary?: string;
     intent?: string;
     keyPoints?: string[];
+    contacts?: Array<{ name: string; email?: string; company?: string; existingContactId?: string }>;
+    actionItems?: Array<{ description: string }>;
+    dealSignals?: Array<{ mentionedValue?: string; mentionedTimeline?: string; stageSuggestion?: string }>;
   } | null;
 
   const summary = extraction?.summary ?? '';
   const intent = extraction?.intent ?? 'general';
   const keyPoints: string[] = extraction?.keyPoints ?? [];
+  const extractedContacts = extraction?.contacts ?? [];
+  const actionItems = extraction?.actionItems ?? [];
+  const dealSignals = extraction?.dealSignals ?? [];
 
+  // ── 1. Create new contacts ────────────────────────────────────────────────
+  const newContactIds: string[] = [];
+  for (const idx of body.createContactIndices) {
+    const ec = extractedContacts[idx];
+    if (!ec || ec.existingContactId) continue;
+    const nameParts = ec.name.trim().split(' ');
+    const firstName = nameParts[0] ?? ec.name;
+    const lastName = nameParts.slice(1).join(' ') || '';
+    const [newContact] = await db
+      .insert(schema.contacts)
+      .values({
+        org_id: auth.orgId,
+        first_name: firstName,
+        last_name: lastName,
+        email: ec.email ?? null,
+        company: ec.company ?? null,
+        owner_id: auth.userId,
+        status: 'lead',
+      })
+      .returning();
+    newContactIds.push(newContact.id);
+  }
+
+  const allContactIds = [...(capture.linked_contact_ids ?? []), ...newContactIds];
+  const firstContactId = allContactIds[0] ?? null;
+
+  // ── 2. Create main Activity ───────────────────────────────────────────────
   const activityType = intentToActivityType(intent, capture.channel_type);
   const subject = summary.slice(0, 100);
   const description =
     summary + (keyPoints.length > 0 ? '\n\nKey Points:\n' + keyPoints.join('\n') : '');
-
-  // First linked contact (if any)
-  const firstContactId =
-    capture.linked_contact_ids && capture.linked_contact_ids.length > 0
-      ? capture.linked_contact_ids[0]
-      : undefined;
 
   const [activity] = await db
     .insert(schema.activities)
@@ -312,23 +347,93 @@ router.post('/:id/accept', async (c) => {
       type: activityType,
       subject,
       description,
-      contact_id: firstContactId ?? null,
+      contact_id: firstContactId,
       user_id: auth.userId,
     })
     .returning();
 
+  // ── 3. Create task Activities from action items ───────────────────────────
+  let createdTaskCount = 0;
+  if (body.createTasks && actionItems.length > 0) {
+    for (const item of actionItems) {
+      await db.insert(schema.activities).values({
+        org_id: auth.orgId,
+        type: 'task',
+        subject: item.description.slice(0, 100),
+        contact_id: firstContactId,
+        user_id: auth.userId,
+      });
+      createdTaskCount++;
+    }
+  }
+
+  // ── 4. Optionally create a Deal from the first deal signal ─────────────────
+  let createdDeal = false;
+  const newDealIds: string[] = [];
+  if (body.createDeal && dealSignals.length > 0) {
+    const signal = dealSignals[0];
+    const [defaultPipeline] = await db
+      .select()
+      .from(schema.pipelines)
+      .where(and(eq(schema.pipelines.org_id, auth.orgId), eq(schema.pipelines.is_default, true)))
+      .limit(1);
+
+    if (defaultPipeline) {
+      const [firstStage] = await db
+        .select()
+        .from(schema.pipeline_stages)
+        .where(eq(schema.pipeline_stages.pipeline_id, defaultPipeline.id))
+        .orderBy(asc(schema.pipeline_stages.position))
+        .limit(1);
+
+      if (firstStage) {
+        const rawValue = signal.mentionedValue?.replace(/[^0-9.]/g, '');
+        const numericValue = rawValue && !isNaN(parseFloat(rawValue)) ? rawValue : null;
+        const dealTitle = signal.mentionedValue
+          ? `${summary.slice(0, 60)} — ${signal.mentionedValue}`
+          : summary.slice(0, 80);
+
+        const [newDeal] = await db
+          .insert(schema.deals)
+          .values({
+            org_id: auth.orgId,
+            title: dealTitle.slice(0, 120),
+            value: numericValue ?? '0',
+            currency: 'USD',
+            stage_id: firstStage.id,
+            pipeline_id: defaultPipeline.id,
+            contact_id: firstContactId,
+            owner_id: auth.userId,
+            status: 'open',
+          })
+          .returning();
+
+        newDealIds.push(newDeal.id);
+        createdDeal = true;
+      }
+    }
+  }
+
+  // ── 5. Update capture ─────────────────────────────────────────────────────
   const [updated] = await db
     .update(schema.channel_captures)
     .set({
       status: 'accepted',
       linked_activity_id: activity.id,
+      linked_contact_ids: allContactIds,
+      linked_deal_ids: [...(capture.linked_deal_ids ?? []), ...newDealIds],
       accepted_at: new Date(),
       updated_at: new Date(),
     })
     .where(and(eq(schema.channel_captures.id, id), eq(schema.channel_captures.org_id, auth.orgId)))
     .returning();
 
-  return c.json(updated);
+  return c.json({
+    capture: updated,
+    createdContactCount: newContactIds.length,
+    createdTaskCount,
+    createdDeal,
+  });
 });
 
 // ---------------------------------------------------------------------------
