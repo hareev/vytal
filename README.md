@@ -241,8 +241,12 @@ The original Vytal capability: connect an external CRM, score its health, and ge
 |---|---|
 | Dynamics 365 / Dataverse | ✅ Implemented |
 | Salesforce | 🔜 Planned |
-| Oracle Siebel | 🔜 Planned |
-| HubSpot | 📋 Planned |
+| HubSpot | 🔜 Planned |
+| Zoho CRM | 📋 Planned |
+| SugarCRM | 📋 Planned |
+| Pega CRM | 📋 Planned |
+| Freshsales | 📋 Planned |
+| Pipedrive | 📋 Planned |
 
 ### Health dimensions
 
@@ -279,9 +283,10 @@ PRs welcome. Highest-value contributions right now:
 
 1. **Salesforce adapter** — REST + Tooling API, map to `RawHealthPayload`
 2. **HubSpot adapter** — Private App Token auth, object + engagement APIs
-3. **Scoring rules** — add rules to `src/lib/scoring/engine.ts`
-4. **Sequence engine** — backend scheduler for drip campaign delivery
-5. **Knowledge base module** — articles, categories, public customer portal
+3. **Zoho / SugarCRM / Pega / Freshsales / Pipedrive adapters** — manifests exist; implement `connect` + `fetchHealthPayload` in `src/lib/adapters/`
+4. **Scoring rules** — add rules to `src/lib/scoring/engine.ts`
+5. **Sequence engine** — backend scheduler for drip campaign delivery
+6. **Knowledge base module** — articles, categories, public customer portal
 
 Open an issue before starting anything large.
 
