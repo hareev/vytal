@@ -7,7 +7,7 @@
 ![AI](https://img.shields.io/badge/AI-Claude%20API-orange)
 ![DB](https://img.shields.io/badge/database-Neon%20%2F%20Postgres-teal)
 
-Vytal is a open-source CRM platform: Sales pipeline, Marketing campaigns, Customer Service, and the original AI-powered Health Doctor — all backed by a headless REST API that any frontend can consume.
+Vytal is a open-source CRM platform: Sales pipeline, Marketing campaigns, Customer Service, and the original AI-powered Vytal Scan — all backed by a headless REST API that any frontend can consume.
 
 **No vendor lock-in. Your data stays in your own Neon database.**
 
@@ -20,7 +20,7 @@ Vytal is a open-source CRM platform: Sales pipeline, Marketing campaigns, Custom
 | **Sales** | Contacts, drag-and-drop pipeline, deals, activities |
 | **Marketing** | Email/SMS/push campaigns, audience segments, automation sequences |
 | **Service** | Support tickets, SLA tracking, internal notes, conversation threads |
-| **Health Monitor** | AI health scoring across schema, automation, data quality, security, and adoption |
+| **Vytal Scan** | AI health scoring across schema, automation, data quality, security, and adoption |
 | **Headless API** | Full REST API (Hono) — consume from any frontend, mobile app, or integration |
 
 ---
@@ -231,7 +231,7 @@ All tables include `org_id` for multi-tenancy. Run `npm run db:studio` to browse
 
 ---
 
-## Health Monitor — CRM connector module
+## Vytal Scan — CRM connector module
 
 The original Vytal capability: connect an external CRM, score its health, and get Claude-powered recommendations.
 
