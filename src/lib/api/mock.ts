@@ -1091,7 +1091,7 @@ class MockApiClient {
           orgId: DEMO_ORG_ID,
           firstName,
           lastName: rest.join(' '),
-          email: extracted.email,
+          email: extracted.email ?? '',
           company: extracted.company,
           status: 'lead',
           ownerId: DEMO_USER_ID,

@@ -875,7 +875,7 @@ function CaptureDetail({ capture, onAccept, onDismiss, onReprocess, isProcessing
                                 const created = await api.contacts.create({
                                   firstName,
                                   lastName: rest.join(' '),
-                                  email: contact.email,
+                                  email: contact.email ?? '',
                                   company: contact.company,
                                   status: 'lead',
                                   ownerId: '',
