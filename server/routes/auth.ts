@@ -7,6 +7,19 @@ import bcrypt from 'bcryptjs';
 import { db, schema } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.js';
 
+// ─── DB row → frontend shape ──────────────────────────────────────────────────
+
+type DbUser = typeof schema.users.$inferSelect;
+type DbOrg = typeof schema.organizations.$inferSelect;
+
+function toUser(u: DbUser) {
+  return { id: u.id, orgId: u.org_id, email: u.email, name: u.name, role: u.role, createdAt: u.created_at };
+}
+
+function toOrg(o: DbOrg) {
+  return { id: o.id, name: o.name, slug: o.slug, plan: o.plan, modules: o.modules, createdAt: o.created_at };
+}
+
 const router = new Hono();
 
 // ---------------------------------------------------------------------------
@@ -84,7 +97,7 @@ router.post('/register', zValidator('json', registerSchema), async (c) => {
     role: user.role,
   });
 
-  return c.json({ token, user: { ...user, password_hash: undefined }, org }, 201);
+  return c.json({ token, user: toUser(user), org: toOrg(org) }, 201);
 });
 
 // ---------------------------------------------------------------------------
@@ -125,9 +138,7 @@ router.post('/login', zValidator('json', loginSchema), async (c) => {
     role: user.role,
   });
 
-  const { password_hash: _ph, ...safeUser } = user;
-
-  return c.json({ token, user: safeUser, org });
+  return c.json({ token, user: toUser(user), org: toOrg(org) });
 });
 
 // ---------------------------------------------------------------------------
@@ -152,9 +163,7 @@ router.get('/me', authMiddleware, async (c) => {
     .where(eq(schema.organizations.id, auth.orgId))
     .limit(1);
 
-  const { password_hash: _ph, ...safeUser } = user;
-
-  return c.json({ user: safeUser, org });
+  return c.json({ user: toUser(user), org: toOrg(org) });
 });
 
 export default router;

@@ -316,7 +316,7 @@ export class ApiClient {
 
 const VITE_API_URL =
   (typeof import.meta !== 'undefined' && (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ||
-  'http://localhost:3001'
+  'http://localhost:3001/api'
 
 export const api = new ApiClient(
   VITE_API_URL,

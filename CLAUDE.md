@@ -1,5 +1,21 @@
 # Vytal — CLAUDE.md
 
+## Git Branching Rules
+
+> **HARD RULE — NO EXCEPTIONS**
+>
+> **Never commit or push directly to `main`.** All changes — bug fixes, features, refactors, docs, config — must be made on a new branch and merged via pull request.
+>
+> **Branch naming:** `<type>/<short-description>` — e.g. `fix/vercel-login`, `feat/salesforce-adapter`, `chore/update-deps`
+>
+> **Workflow:**
+> 1. `git checkout -b <branch-name>` before making any changes
+> 2. Commit on the branch
+> 3. Open a PR targeting `main`
+> 4. Merge via PR — never push to `main` directly
+
+---
+
 ## Project Overview
 
 Vytal (v0.2.0) is a **headless CRM platform** with an integrated AI-powered health monitoring module. It is a full-stack application with a React SPA frontend and a REST API backend.

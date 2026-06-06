@@ -16,6 +16,26 @@ Vytal adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.3.1] — 2026-06-06
+
+### Added
+
+- `api/[[...route]].ts` — Vercel serverless entrypoint; wraps Hono app via `hono/vercel` handle, Node.js 20.x runtime; enables full-stack deployment at a single Vercel domain with no separate backend hosting
+- `server/app.ts` — Hono app and route registration extracted into a standalone module; safe to import from Vercel functions without triggering `serve()` or the sequence scheduler
+- `vercel.json` — SPA rewrite rule (`/*` → `/index.html`) for React Router; explicit `buildCommand` and `outputDirectory` for Vite
+
+### Fixed
+
+- **Login "Failed to Fetch" on Vercel** — `VITE_API_URL` was defaulting to `http://localhost:3001` in production (env vars not set in Vercel dashboard); updated `client.ts` default to `http://localhost:3001/api` and documented that `VITE_API_URL=/api` must be set in Vercel
+- **Auth response shape mismatch** — `POST /auth/login`, `POST /auth/register`, and `GET /auth/me` were returning raw Drizzle rows (snake_case: `org_id`, `created_at`) but the frontend `User` and `Org` types expect camelCase (`orgId`, `createdAt`); added `toUser()` / `toOrg()` mapping helpers in `server/routes/auth.ts`
+- **SPA routing 404s** — direct navigation to `/login`, `/app/*` etc. returned 404 from Vercel CDN with no `vercel.json` in place
+
+### Changed
+
+- `server/index.ts` — now imports `app` from `server/app.ts`; only responsible for `serve()` startup and `startSequenceScheduler()` (local dev)
+
+---
+
 ## [0.3.0] — 2026-05-19
 
 ### Added
@@ -172,7 +192,8 @@ Vytal adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-[Unreleased]: https://github.com/hareev/vytal/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/hareev/vytal/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/hareev/vytal/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/hareev/vytal/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hareev/vytal/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hareev/vytal/releases/tag/v0.1.0
