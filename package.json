@@ -6,9 +6,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"vite\" \"node --env-file=.env --import tsx/esm --watch server/index.ts\"",
+    "dev:frontend": "vite",
     "dev:api": "node --env-file=.env --import tsx/esm --watch server/index.ts",
-    "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
     "build": "tsc --noEmit && vite build",
     "build:api": "tsc -p tsconfig.server.json",
     "preview": "vite preview",
