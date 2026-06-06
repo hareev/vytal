@@ -314,9 +314,13 @@ export class ApiClient {
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
+const isLocalhost =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+
 const VITE_API_URL =
   (typeof import.meta !== 'undefined' && (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ||
-  'http://localhost:3001/api'
+  (isLocalhost ? 'http://localhost:3001/api' : '/api')
 
 export const api = new ApiClient(
   VITE_API_URL,
