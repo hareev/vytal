@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata } from '@/types/captures'
+import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata, AcceptCaptureOptions, AcceptCaptureResult } from '@/types/captures'
 import { api } from '@/lib/api/client'
 import { mockApi } from '@/lib/api/mock'
 
@@ -24,7 +24,7 @@ interface CaptureStore {
   loadCapture: (id: string) => Promise<void>
   createCapture: (data: { channelType: ChannelType; rawContent: string; metadata?: CaptureMetadata }) => Promise<ChannelCapture>
   processCapture: (id: string) => Promise<void>
-  acceptCapture: (id: string) => Promise<void>
+  acceptCapture: (id: string, opts?: AcceptCaptureOptions) => Promise<AcceptCaptureResult>
   dismissCapture: (id: string) => Promise<void>
   setActiveCapture: (capture: ChannelCapture | null) => void
 }
@@ -78,12 +78,13 @@ export const useCaptureStore = create<CaptureStore>((set) => ({
     }
   },
 
-  acceptCapture: async (id) => {
-    const updated = await client.captures.accept(id)
+  acceptCapture: async (id, opts) => {
+    const result = await client.captures.accept(id, opts)
     set((state) => ({
-      captures: state.captures.map((c) => (c.id === id ? updated : c)),
-      activeCapture: state.activeCapture?.id === id ? updated : state.activeCapture,
+      captures: state.captures.map((c) => (c.id === id ? result.capture : c)),
+      activeCapture: state.activeCapture?.id === id ? result.capture : state.activeCapture,
     }))
+    return result
   },
 
   dismissCapture: async (id) => {

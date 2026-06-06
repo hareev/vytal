@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useCaptureStore } from '@/hooks/useCaptureStore'
-import type { ChannelCapture as ChannelCaptureType, ChannelType, CaptureStatus, CaptureMetadata } from '@/types/captures'
+import type { ChannelCapture as ChannelCaptureType, ChannelType, CaptureStatus, CaptureMetadata, AcceptCaptureOptions, AcceptCaptureResult } from '@/types/captures'
+import { api } from '@/lib/api/client'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -523,11 +524,139 @@ function SectionCard({ title, children, badge }: { title: string; children: Reac
   )
 }
 
+// ─── Accept Review Panel ─────────────────────────────────────────────────────
+
+interface AcceptReviewPanelProps {
+  capture: ChannelCaptureType
+  onAccept: (opts: AcceptCaptureOptions) => Promise<void>
+  onCancel: () => void
+}
+
+function AcceptReviewPanel({ capture, onAccept, onCancel }: AcceptReviewPanelProps) {
+  const contacts = capture.extraction?.contacts ?? []
+  const actionItems = capture.extraction?.actionItems ?? []
+  const dealSignals = capture.extraction?.dealSignals ?? []
+
+  const unmatchedIndices = contacts
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => !c.existingContactId)
+    .map(({ i }) => i)
+
+  const [selectedContactIndices, setSelectedContactIndices] = useState<number[]>(unmatchedIndices)
+  const [createTasks, setCreateTasks] = useState(true)
+  const [createDeal, setCreateDeal] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  function toggleContact(idx: number) {
+    setSelectedContactIndices(prev =>
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx],
+    )
+  }
+
+  async function handleConfirm() {
+    setIsSubmitting(true)
+    try {
+      await onAccept({ createContactIndices: selectedContactIndices, createTasks, createDeal })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const activityLabel = capture.channelType === 'call_transcript' ? 'Call activity'
+    : capture.channelType === 'email' ? 'Email activity'
+    : capture.channelType === 'chat' ? 'Chat activity'
+    : 'Activity'
+
+  return (
+    <div style={{ borderRadius: '10px', border: '0.5px solid var(--accent)', background: 'var(--accent-bg)', overflow: 'hidden' }}>
+      <div style={{ padding: '10px 14px', borderBottom: '0.5px solid var(--accent)', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>What will be filed</span>
+        <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: '16px', color: 'var(--text-tertiary)', cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}>×</button>
+      </div>
+
+      <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Always: main activity */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-primary)' }}>
+          <IconCheck size={13} />
+          <span>{activityLabel} will be logged</span>
+        </div>
+
+        {/* Unmatched contacts */}
+        {unmatchedIndices.length > 0 && (
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', marginBottom: '6px' }}>New contacts</div>
+            {unmatchedIndices.map(idx => (
+              <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedContactIndices.includes(idx)}
+                  onChange={() => toggleContact(idx)}
+                  style={{ accentColor: 'var(--accent)', width: '14px', height: '14px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+                  {contacts[idx].name}
+                  {contacts[idx].company && <span style={{ color: 'var(--text-tertiary)', marginLeft: '4px' }}>· {contacts[idx].company}</span>}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {/* Action items → tasks */}
+        {actionItems.length > 0 && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={createTasks}
+              onChange={e => setCreateTasks(e.target.checked)}
+              style={{ accentColor: 'var(--accent)', width: '14px', height: '14px', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+              Create {actionItems.length} task{actionItems.length > 1 ? 's' : ''} from action items
+            </span>
+          </label>
+        )}
+
+        {/* Deal signals */}
+        {dealSignals.length > 0 && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={createDeal}
+              onChange={e => setCreateDeal(e.target.checked)}
+              style={{ accentColor: 'var(--accent)', width: '14px', height: '14px', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+              Create deal
+              {dealSignals[0].mentionedValue && (
+                <span style={{ color: 'var(--text-secondary)', marginLeft: '4px' }}>({dealSignals[0].mentionedValue})</span>
+              )}
+            </span>
+          </label>
+        )}
+
+        <button
+          onClick={handleConfirm}
+          disabled={isSubmitting}
+          style={{
+            marginTop: '4px', width: '100%', padding: '10px', borderRadius: '8px', border: 'none',
+            background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: 600,
+            cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          }}
+        >
+          {isSubmitting ? <><IconSpin size={14} /> Filing…</> : <><IconCheck size={13} /> Confirm & File to CRM</>}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Capture Detail Panel ─────────────────────────────────────────────────────
 
 interface CaptureDetailProps {
   capture: ChannelCaptureType
-  onAccept: () => Promise<void>
+  onAccept: (opts: AcceptCaptureOptions) => Promise<AcceptCaptureResult>
   onDismiss: () => Promise<void>
   onReprocess: () => Promise<void>
   isProcessing: boolean
@@ -535,19 +664,12 @@ interface CaptureDetailProps {
 
 function CaptureDetail({ capture, onAccept, onDismiss, onReprocess, isProcessing }: CaptureDetailProps) {
   const { status, channelType, extraction, createdAt, metadata, linkedActivityId, linkedContactIds } = capture
-  const [isAccepting, setIsAccepting] = useState(false)
   const [isDismissing, setIsDismissing] = useState(false)
-  const [justAccepted, setJustAccepted] = useState(false)
-
-  async function handleAccept() {
-    setIsAccepting(true)
-    try {
-      await onAccept()
-      setJustAccepted(true)
-    } finally {
-      setIsAccepting(false)
-    }
-  }
+  const [showReview, setShowReview] = useState(false)
+  const [acceptResult, setAcceptResult] = useState<AcceptCaptureResult | null>(null)
+  // Track individually added contacts outside full accept flow: contactIndex → created ID
+  const [addedContacts, setAddedContacts] = useState<Record<number, string>>({})
+  const [addingContact, setAddingContact] = useState<number | null>(null)
 
   async function handleDismiss() {
     setIsDismissing(true)
@@ -603,11 +725,10 @@ function CaptureDetail({ capture, onAccept, onDismiss, onReprocess, isProcessing
             {status === 'ready' && (
               <>
                 <button
-                  onClick={handleAccept}
-                  disabled={isAccepting}
-                  style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: isAccepting ? 'not-allowed' : 'pointer', opacity: isAccepting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}
+                  onClick={() => setShowReview(r => !r)}
+                  style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  {isAccepting ? <><IconSpin size={12} /> Accepting…</> : <><IconCheck size={12} /> Accept</>}
+                  {showReview ? '↑ Collapse' : <><IconCheck size={12} /> Review & Accept</>}
                 </button>
                 <button
                   onClick={handleDismiss}
@@ -633,7 +754,7 @@ function CaptureDetail({ capture, onAccept, onDismiss, onReprocess, isProcessing
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
         {/* Accepted state */}
-        {status === 'accepted' && !justAccepted && (
+        {status === 'accepted' && !acceptResult && (
           <div style={{ padding: '16px', borderRadius: '12px', background: 'var(--success-bg)', border: '0.5px solid var(--success-text)', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--success-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <IconCheck size={16} />
@@ -641,21 +762,36 @@ function CaptureDetail({ capture, onAccept, onDismiss, onReprocess, isProcessing
             <div>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--success-text)', marginBottom: '3px' }}>Filed to CRM</div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                {linkedActivityId ? `Linked activity: ${linkedActivityId}` : 'Accepted and linked to CRM records'}
+                {linkedActivityId ? 'Activity logged' : 'Accepted and linked to CRM records'}
                 {linkedContactIds.length > 0 && ` · ${linkedContactIds.length} contact${linkedContactIds.length > 1 ? 's' : ''} linked`}
               </div>
             </div>
           </div>
         )}
 
-        {/* Just accepted success state */}
-        {justAccepted && (
+        {/* Just accepted — show what was created */}
+        {acceptResult && (
           <div style={{ padding: '20px', borderRadius: '12px', background: 'var(--success-bg)', border: '0.5px solid var(--success-text)', textAlign: 'center' }}>
-            <div style={{ fontSize: '28px', marginBottom: '8px', color: 'var(--success-text)' }}>
+            <div style={{ color: 'var(--success-text)', marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
               <IconCheck size={28} />
             </div>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--success-text)', marginBottom: '4px' }}>Filed to CRM</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>This capture has been accepted and linked to your CRM records</div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--success-text)', marginBottom: '6px' }}>Filed to CRM</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
+              <span style={{ padding: '2px 8px', borderRadius: '10px', background: 'var(--success-text)', color: '#fff', fontWeight: 500 }}>Activity logged</span>
+              {acceptResult.createdContactCount > 0 && (
+                <span style={{ padding: '2px 8px', borderRadius: '10px', background: 'var(--success-text)', color: '#fff', fontWeight: 500 }}>
+                  {acceptResult.createdContactCount} contact{acceptResult.createdContactCount > 1 ? 's' : ''} created
+                </span>
+              )}
+              {acceptResult.createdTaskCount > 0 && (
+                <span style={{ padding: '2px 8px', borderRadius: '10px', background: 'var(--success-text)', color: '#fff', fontWeight: 500 }}>
+                  {acceptResult.createdTaskCount} task{acceptResult.createdTaskCount > 1 ? 's' : ''} created
+                </span>
+              )}
+              {acceptResult.createdDeal && (
+                <span style={{ padding: '2px 8px', borderRadius: '10px', background: 'var(--success-text)', color: '#fff', fontWeight: 500 }}>Deal created</span>
+              )}
+            </div>
           </div>
         )}
 
@@ -725,9 +861,35 @@ function CaptureDetail({ capture, onAccept, onDismiss, onReprocess, isProcessing
                           <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <IconCheck size={11} /> Matched
                           </span>
+                        ) : addedContacts[i] !== undefined ? (
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--success-text)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <IconCheck size={11} /> Created
+                          </span>
                         ) : (
-                          <button style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', background: 'transparent', border: '0.5px solid var(--border)', borderRadius: '6px', padding: '3px 8px', cursor: 'not-allowed', opacity: 0.6 }}>
-                            + Add to CRM
+                          <button
+                            disabled={addingContact === i}
+                            onClick={async () => {
+                              setAddingContact(i)
+                              try {
+                                const [firstName, ...rest] = contact.name.split(' ')
+                                const created = await api.contacts.create({
+                                  firstName,
+                                  lastName: rest.join(' '),
+                                  email: contact.email,
+                                  company: contact.company,
+                                  status: 'lead',
+                                  ownerId: '',
+                                })
+                                setAddedContacts(prev => ({ ...prev, [i]: created.id }))
+                              } catch {
+                                // silently ignore — user can retry
+                              } finally {
+                                setAddingContact(null)
+                              }
+                            }}
+                            style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', background: 'transparent', border: '0.5px solid var(--accent)', borderRadius: '6px', padding: '3px 8px', cursor: addingContact === i ? 'not-allowed' : 'pointer', opacity: addingContact === i ? 0.6 : 1 }}
+                          >
+                            {addingContact === i ? '…' : '+ Add to CRM'}
                           </button>
                         )}
                       </div>
@@ -793,22 +955,17 @@ function CaptureDetail({ capture, onAccept, onDismiss, onReprocess, isProcessing
               </SectionCard>
             )}
 
-            {/* Accept CTA at bottom for ready captures */}
-            {status === 'ready' && !justAccepted && (
-              <div style={{ paddingTop: '4px', paddingBottom: '8px' }}>
-                <button
-                  onClick={handleAccept}
-                  disabled={isAccepting}
-                  style={{
-                    width: '100%', padding: '13px', borderRadius: '10px', border: 'none',
-                    background: 'var(--accent)', color: '#fff', fontSize: '14px', fontWeight: 600,
-                    cursor: isAccepting ? 'not-allowed' : 'pointer', opacity: isAccepting ? 0.7 : 1,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  }}
-                >
-                  {isAccepting ? <><IconSpin size={16} /> Accepting…</> : <><IconCheck size={14} /> Accept & File to CRM</>}
-                </button>
-              </div>
+            {/* Accept review panel */}
+            {status === 'ready' && !acceptResult && showReview && (
+              <AcceptReviewPanel
+                capture={capture}
+                onAccept={async (opts) => {
+                  const result = await onAccept(opts)
+                  setAcceptResult(result)
+                  setShowReview(false)
+                }}
+                onCancel={() => setShowReview(false)}
+              />
             )}
           </>
         )}
@@ -994,7 +1151,7 @@ export function ChannelCapture() {
           {activeCapture ? (
             <CaptureDetail
               capture={activeCapture}
-              onAccept={() => acceptCapture(activeCapture.id)}
+              onAccept={(opts) => acceptCapture(activeCapture.id, opts)}
               onDismiss={() => dismissCapture(activeCapture.id)}
               onReprocess={() => processCapture(activeCapture.id)}
               isProcessing={isProcessing}

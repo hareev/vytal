@@ -70,3 +70,16 @@ export interface ChannelCapture {
   createdAt: Date
   updatedAt: Date
 }
+
+export interface AcceptCaptureOptions {
+  createContactIndices?: number[]  // indices into extraction.contacts to create (those without existingContactId)
+  createTasks?: boolean            // default true — create Task Activity per action item
+  createDeal?: boolean             // default false — create Deal from first deal signal
+}
+
+export interface AcceptCaptureResult {
+  capture: ChannelCapture
+  createdContactCount: number
+  createdTaskCount: number
+  createdDeal: boolean
+}
