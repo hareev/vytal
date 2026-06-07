@@ -38,3 +38,4 @@ tasks/*
 
 # Docs — ignore markdown, only ship the GitHub Pages site
 docs/*.md
+tasks/*
