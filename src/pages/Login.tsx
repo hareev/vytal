@@ -35,10 +35,12 @@ export function Login() {
 
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="28" height="28" rx="8" fill="var(--accent)"/>
-              <circle cx="14" cy="14" r="7" stroke="white" strokeWidth="1.5"/>
-              <path d="M14 10v4l2.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="2,4 9,4 16,22 13,22" fill="currentColor" />
+              <polygon points="30,4 23,4 16,22 19,22" fill="currentColor" />
+              <polygon points="13,22 19,22 17.5,26 14.5,26" fill="currentColor" />
+              <path d="M 7,14 L 11,14 L 12.5,10 L 14,16 L 15.2,12.5 L 16.2,16 L 17,14 L 25,14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <circle cx="25" cy="14" r="1.8" fill="currentColor" />
             </svg>
             <span style={{ fontSize: '20px', fontWeight: 600, letterSpacing: '-0.02em' }}>Vytal</span>
           </div>
