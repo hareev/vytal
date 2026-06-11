@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { SignJWT } from 'jose';
 import bcrypt from 'bcryptjs';
 import { db, schema } from '../db/index.js';
@@ -25,6 +25,73 @@ const router = new Hono();
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function getAppUrl(): string {
+  if (process.env.APP_URL) return process.env.APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'http://localhost:3001';
+}
+
+function getCookieValue(cookieHeader: string, name: string): string | null {
+  const entry = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith(`${name}=`));
+  return entry ? entry.slice(name.length + 1) : null;
+}
+
+async function findOrCreateOAuthUser(
+  provider: string,
+  providerId: string,
+  email: string,
+  name: string,
+): Promise<{ user: typeof schema.users.$inferSelect; org: typeof schema.organizations.$inferSelect }> {
+  // Returning OAuth user — matched by provider + provider_id
+  const [byProvider] = await db
+    .select()
+    .from(schema.users)
+    .where(and(eq(schema.users.provider, provider), eq(schema.users.provider_id, providerId)))
+    .limit(1);
+
+  if (byProvider) {
+    const [org] = await db
+      .select()
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, byProvider.org_id))
+      .limit(1);
+    return { user: byProvider, org };
+  }
+
+  // Email already exists — link OAuth to existing account
+  const [byEmail] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, email))
+    .limit(1);
+
+  if (byEmail) {
+    await db
+      .update(schema.users)
+      .set({ provider, provider_id: providerId })
+      .where(eq(schema.users.id, byEmail.id));
+    const [org] = await db
+      .select()
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, byEmail.org_id))
+      .limit(1);
+    return { user: byEmail, org };
+  }
+
+  // New user — create org + owner
+  const baseSlug = slugify(name) || 'workspace';
+  const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
+  const [org] = await db
+    .insert(schema.organizations)
+    .values({ name: `${name}'s Workspace`, slug })
+    .returning();
+  const [user] = await db
+    .insert(schema.users)
+    .values({ org_id: org.id, email, name, role: 'owner', provider, provider_id: providerId })
+    .returning();
+  return { user, org };
+}
 async function signToken(payload: {
   userId: string;
   orgId: string;
@@ -121,6 +188,10 @@ router.post('/login', zValidator('json', loginSchema), async (c) => {
     return c.json({ error: 'Invalid credentials' }, 401);
   }
 
+  if (!user.password_hash) {
+    return c.json({ error: 'This account uses social sign-in. Please sign in with GitHub or Google.' }, 400);
+  }
+
   const valid = await bcrypt.compare(body.password, user.password_hash);
   if (!valid) {
     return c.json({ error: 'Invalid credentials' }, 401);
@@ -164,6 +235,129 @@ router.get('/me', authMiddleware, async (c) => {
     .limit(1);
 
   return c.json({ user: toUser(user), org: toOrg(org) });
+});
+
+// ---------------------------------------------------------------------------
+// GitHub OAuth
+// ---------------------------------------------------------------------------
+router.get('/github', async (c) => {
+  const state = crypto.randomUUID();
+  const params = new URLSearchParams({
+    client_id: process.env.GITHUB_CLIENT_ID ?? '',
+    redirect_uri: `${getAppUrl()}/api/auth/github/callback`,
+    scope: 'user:email',
+    state,
+  });
+  c.header(
+    'Set-Cookie',
+    `oauth_state=${state}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax`,
+  );
+  return c.redirect(`https://github.com/login/oauth/authorize?${params}`);
+});
+
+router.get('/github/callback', async (c) => {
+  const { code, state } = c.req.query();
+  const cookieState = getCookieValue(c.req.header('cookie') ?? '', 'oauth_state');
+
+  if (!code || !state || state !== cookieState) {
+    return c.redirect(`${getAppUrl()}/login?error=invalid_state`);
+  }
+
+  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: process.env.GITHUB_CLIENT_ID,
+      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      code,
+    }),
+  });
+  const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+
+  if (!tokenData.access_token) {
+    return c.redirect(`${getAppUrl()}/login?error=github_token_failed`);
+  }
+
+  const [userRes, emailsRes] = await Promise.all([
+    fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}`, 'User-Agent': 'Vytal' },
+    }),
+    fetch('https://api.github.com/user/emails', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}`, 'User-Agent': 'Vytal' },
+    }),
+  ]);
+  const ghUser = await userRes.json() as { id: number; name?: string; login?: string; email?: string };
+  const ghEmails = await emailsRes.json() as { email: string; primary: boolean; verified: boolean }[];
+
+  const email = ghEmails.find(e => e.primary && e.verified)?.email ?? ghUser.email ?? '';
+  if (!email) return c.redirect(`${getAppUrl()}/login?error=no_email`);
+
+  const name = ghUser.name ?? ghUser.login ?? 'GitHub User';
+  const { user, org } = await findOrCreateOAuthUser('github', String(ghUser.id), email, name);
+  const token = await signToken({ userId: user.id, orgId: org.id, role: user.role });
+
+  c.header('Set-Cookie', 'oauth_state=; HttpOnly; Path=/; Max-Age=0');
+  return c.redirect(`${getAppUrl()}/auth/callback?token=${token}`);
+});
+
+// ---------------------------------------------------------------------------
+// Google OAuth
+// ---------------------------------------------------------------------------
+router.get('/google', async (c) => {
+  const state = crypto.randomUUID();
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID ?? '',
+    redirect_uri: `${getAppUrl()}/api/auth/google/callback`,
+    response_type: 'code',
+    scope: 'email profile',
+    state,
+    access_type: 'offline',
+  });
+  c.header(
+    'Set-Cookie',
+    `oauth_state=${state}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax`,
+  );
+  return c.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+router.get('/google/callback', async (c) => {
+  const { code, state } = c.req.query();
+  const cookieState = getCookieValue(c.req.header('cookie') ?? '', 'oauth_state');
+
+  if (!code || !state || state !== cookieState) {
+    return c.redirect(`${getAppUrl()}/login?error=invalid_state`);
+  }
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID ?? '',
+      client_secret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      redirect_uri: `${getAppUrl()}/api/auth/google/callback`,
+      grant_type: 'authorization_code',
+    }),
+  });
+  const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+
+  if (!tokenData.access_token) {
+    return c.redirect(`${getAppUrl()}/login?error=google_token_failed`);
+  }
+
+  const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+  const gUser = await userRes.json() as { sub: string; email?: string; name?: string };
+
+  if (!gUser.email) return c.redirect(`${getAppUrl()}/login?error=no_email`);
+
+  const name = gUser.name ?? gUser.email.split('@')[0];
+  const { user, org } = await findOrCreateOAuthUser('google', gUser.sub, gUser.email, name);
+  const token = await signToken({ userId: user.id, orgId: org.id, role: user.role });
+
+  c.header('Set-Cookie', 'oauth_state=; HttpOnly; Path=/; Max-Age=0');
+  return c.redirect(`${getAppUrl()}/auth/callback?token=${token}`);
 });
 
 export default router;

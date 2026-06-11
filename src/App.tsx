@@ -8,6 +8,7 @@ import { AppShell } from '@/components/layout/AppShell'
 // Auth pages
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
+import { AuthCallback } from '@/pages/AuthCallback'
 
 // Onboarding
 import { Onboarding } from '@/pages/onboarding/Onboarding'
@@ -46,6 +47,7 @@ export default function App() {
         {/* Auth */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
         {/* Onboarding (authenticated) */}
         <Route path="/onboarding" element={<Onboarding />} />
