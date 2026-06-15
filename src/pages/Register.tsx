@@ -1,145 +1,59 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useAuthStore } from '@/hooks/useAuthStore'
+import { Link } from 'react-router-dom'
+
+const iconGitHub = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+  </svg>
+)
+
+const btnStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '10px',
+  width: '100%',
+  padding: '10px 16px',
+  borderRadius: '10px',
+  border: '0.5px solid var(--border)',
+  background: 'var(--bg-input)',
+  cursor: 'pointer',
+  fontSize: '14px',
+  fontWeight: 500,
+  color: 'var(--text-primary)',
+  transition: 'opacity 0.15s',
+}
 
 export function Register() {
-  const navigate = useNavigate()
-  const register = useAuthStore(s => s.register)
-  const error = useAuthStore(s => s.error)
-
-  const [orgName, setOrgName] = useState('')
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [localError, setLocalError] = useState<string | null>(null)
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setLocalError(null)
-    if (password.length < 8) {
-      setLocalError('Password must be at least 8 characters.')
-      return
-    }
-    setIsLoading(true)
-    try {
-      await register(orgName, email, name, password)
-      navigate('/onboarding')
-    } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Registration failed')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const displayError = localError ?? error ?? null
-
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: 'var(--bg-page)' }}>
-      <div style={{ width: '100%', maxWidth: '440px' }}>
+      <div style={{ width: '100%', maxWidth: '380px' }}>
 
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="28" height="28" rx="8" fill="var(--accent)"/>
-              <circle cx="14" cy="14" r="7" stroke="white" strokeWidth="1.5"/>
-              <path d="M14 10v4l2.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              <rect width="28" height="28" rx="8" fill="var(--accent)" />
+              <circle cx="14" cy="14" r="7" stroke="white" strokeWidth="1.5" />
+              <path d="M14 10v4l2.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             <span style={{ fontSize: '20px', fontWeight: 600, letterSpacing: '-0.02em' }}>Vytal</span>
           </div>
           <h1 style={{ fontSize: '22px', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: '0 0 6px' }}>
-            Create your Vytal workspace
+            Create your workspace
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>
             Get started for free — no credit card required
           </p>
         </div>
 
-        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '1.5rem' }}>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <button style={btnStyle} onClick={() => { window.location.href = '/api/auth/github' }}>
+            {iconGitHub}
+            Continue with GitHub
+          </button>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, marginBottom: '4px', color: 'var(--text-secondary)' }}>
-                Organisation name *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Acme Inc."
-                value={orgName}
-                onChange={e => setOrgName(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--bg-input)', fontSize: '13px', color: 'var(--text-primary)', boxSizing: 'border-box', outline: 'none' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, marginBottom: '4px', color: 'var(--text-secondary)' }}>
-                Your name *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Jane Smith"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--bg-input)', fontSize: '13px', color: 'var(--text-primary)', boxSizing: 'border-box', outline: 'none' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, marginBottom: '4px', color: 'var(--text-secondary)' }}>
-                Work email *
-              </label>
-              <input
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="jane@company.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--bg-input)', fontSize: '13px', color: 'var(--text-primary)', boxSizing: 'border-box', outline: 'none' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, marginBottom: '4px', color: 'var(--text-secondary)' }}>
-                Password *
-              </label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--bg-input)', fontSize: '13px', color: 'var(--text-primary)', boxSizing: 'border-box', outline: 'none' }}
-              />
-              <p style={{ margin: '3px 0 0', fontSize: '11px', color: 'var(--text-tertiary)' }}>Minimum 8 characters</p>
-            </div>
-
-            {displayError && (
-              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--danger-bg)', border: '0.5px solid var(--danger-border)', fontSize: '13px', color: 'var(--danger-text)' }}>
-                {displayError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              style={{
-                width: '100%', padding: '10px', borderRadius: '10px',
-                background: 'var(--accent)', border: 'none',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                fontSize: '14px', fontWeight: 500, color: '#fff',
-                opacity: isLoading ? 0.7 : 1,
-                transition: 'opacity 0.15s',
-                marginTop: '2px',
-              }}
-            >
-              {isLoading ? 'Creating workspace…' : 'Create workspace'}
-            </button>
-          </form>
+          <p style={{ margin: '8px 0 0', fontSize: '12px', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+            First sign-in automatically creates your workspace
+          </p>
         </div>
 
         <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '1.25rem' }}>
