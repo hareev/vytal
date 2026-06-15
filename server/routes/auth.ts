@@ -242,9 +242,12 @@ router.get('/me', authMiddleware, async (c) => {
 // ---------------------------------------------------------------------------
 router.get('/github', async (c) => {
   const state = crypto.randomUUID();
+  const appUrl = getAppUrl();
+  const redirectUri = `${appUrl}/api/auth/github/callback`;
+  console.log('[github] initiating OAuth — APP_URL:', appUrl, '| redirect_uri:', redirectUri, '| client_id set:', !!process.env.GITHUB_CLIENT_ID);
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID ?? '',
-    redirect_uri: `${getAppUrl()}/api/auth/github/callback`,
+    redirect_uri: redirectUri,
     scope: 'user:email',
     state,
   });
@@ -256,10 +259,17 @@ router.get('/github', async (c) => {
 });
 
 router.get('/github/callback', async (c) => {
-  const { code, state } = c.req.query();
+  const { code, state, error: ghError } = c.req.query();
   const cookieState = getCookieValue(c.req.header('cookie') ?? '', 'oauth_state');
+  console.log('[github/callback] code:', !!code, '| state match:', state === cookieState, '| gh error:', ghError ?? 'none');
+
+  if (ghError) {
+    console.error('[github/callback] GitHub returned error:', ghError);
+    return c.redirect(`${getAppUrl()}/login?error=github_denied`);
+  }
 
   if (!code || !state || state !== cookieState) {
+    console.error('[github/callback] state mismatch — got:', state, '| cookie:', cookieState);
     return c.redirect(`${getAppUrl()}/login?error=invalid_state`);
   }
 
@@ -272,7 +282,8 @@ router.get('/github/callback', async (c) => {
       code,
     }),
   });
-  const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+  const tokenData = await tokenRes.json() as { access_token?: string; error?: string; error_description?: string };
+  console.log('[github/callback] token exchange — has access_token:', !!tokenData.access_token, '| error:', tokenData.error ?? 'none', tokenData.error_description ?? '');
 
   if (!tokenData.access_token) {
     return c.redirect(`${getAppUrl()}/login?error=github_token_failed`);
@@ -288,16 +299,29 @@ router.get('/github/callback', async (c) => {
   ]);
   const ghUser = await userRes.json() as { id: number; name?: string; login?: string; email?: string };
   const ghEmails = await emailsRes.json() as { email: string; primary: boolean; verified: boolean }[];
+  console.log('[github/callback] gh user id:', ghUser.id, '| login:', ghUser.login, '| emails count:', ghEmails.length);
 
   const email = ghEmails.find(e => e.primary && e.verified)?.email ?? ghUser.email ?? '';
-  if (!email) return c.redirect(`${getAppUrl()}/login?error=no_email`);
+  if (!email) {
+    console.error('[github/callback] no verified primary email found');
+    return c.redirect(`${getAppUrl()}/login?error=no_email`);
+  }
 
   const name = ghUser.name ?? ghUser.login ?? 'GitHub User';
-  const { user, org } = await findOrCreateOAuthUser('github', String(ghUser.id), email, name);
-  const token = await signToken({ userId: user.id, orgId: org.id, role: user.role });
+  console.log('[github/callback] upserting user — email:', email, '| name:', name);
 
-  c.header('Set-Cookie', 'oauth_state=; HttpOnly; Path=/; Max-Age=0');
-  return c.redirect(`${getAppUrl()}/auth/callback?token=${token}`);
+  try {
+    const { user, org } = await findOrCreateOAuthUser('github', String(ghUser.id), email, name);
+    console.log('[github/callback] user upserted — userId:', user.id, '| orgId:', org.id);
+    const token = await signToken({ userId: user.id, orgId: org.id, role: user.role });
+    c.header('Set-Cookie', 'oauth_state=; HttpOnly; Path=/; Max-Age=0');
+    const dest = `${getAppUrl()}/auth/callback?token=${token}`;
+    console.log('[github/callback] redirecting to:', dest.replace(/token=.*/, 'token=<redacted>'));
+    return c.redirect(dest);
+  } catch (err) {
+    console.error('[github/callback] DB error:', err);
+    return c.redirect(`${getAppUrl()}/login?error=db_error`);
+  }
 });
 
 export default router;
