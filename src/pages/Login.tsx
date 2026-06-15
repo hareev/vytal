@@ -51,7 +51,7 @@ export function Login() {
             Sign in to Vytal
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>
-            Use your GitHub or Google account to continue
+            Use your GitHub account to continue
           </p>
         </div>
 
