@@ -12,9 +12,10 @@ export function AuthCallback() {
       navigate('/login', { replace: true })
       return
     }
+    const isNew = new URLSearchParams(window.location.search).get('new') === '1'
     localStorage.setItem('vytal_token', token)
     window.history.replaceState({}, '', '/auth/callback')
-    loadFromStorage().then(() => navigate('/app', { replace: true }))
+    loadFromStorage().then(() => navigate(isNew ? '/onboarding' : '/app', { replace: true }))
   }, [])
 
   return (

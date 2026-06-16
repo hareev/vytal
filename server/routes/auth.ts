@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { setCookie, getCookie } from 'hono/cookie';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
@@ -32,17 +33,12 @@ function getAppUrl(): string {
   return 'http://localhost:3001';
 }
 
-function getCookieValue(cookieHeader: string, name: string): string | null {
-  const entry = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith(`${name}=`));
-  return entry ? entry.slice(name.length + 1) : null;
-}
-
 async function findOrCreateOAuthUser(
   provider: string,
   providerId: string,
   email: string,
   name: string,
-): Promise<{ user: typeof schema.users.$inferSelect; org: typeof schema.organizations.$inferSelect }> {
+): Promise<{ user: typeof schema.users.$inferSelect; org: typeof schema.organizations.$inferSelect; isNew: boolean }> {
   // Returning OAuth user — matched by provider + provider_id
   const [byProvider] = await db
     .select()
@@ -56,7 +52,7 @@ async function findOrCreateOAuthUser(
       .from(schema.organizations)
       .where(eq(schema.organizations.id, byProvider.org_id))
       .limit(1);
-    return { user: byProvider, org };
+    return { user: byProvider, org, isNew: false };
   }
 
   // Email already exists — link OAuth to existing account
@@ -76,7 +72,7 @@ async function findOrCreateOAuthUser(
       .from(schema.organizations)
       .where(eq(schema.organizations.id, byEmail.org_id))
       .limit(1);
-    return { user: byEmail, org };
+    return { user: byEmail, org, isNew: false };
   }
 
   // New user — create org + owner
@@ -90,7 +86,7 @@ async function findOrCreateOAuthUser(
     .insert(schema.users)
     .values({ org_id: org.id, email, name, role: 'owner', provider, provider_id: providerId })
     .returning();
-  return { user, org };
+  return { user, org, isNew: true };
 }
 async function signToken(payload: {
   userId: string;
@@ -251,16 +247,13 @@ router.get('/github', async (c) => {
     scope: 'user:email',
     state,
   });
-  c.header(
-    'Set-Cookie',
-    `oauth_state=${state}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax`,
-  );
+  setCookie(c, 'oauth_state', state, { httpOnly: true, path: '/', maxAge: 600, sameSite: 'Lax' });
   return c.redirect(`https://github.com/login/oauth/authorize?${params}`);
 });
 
 router.get('/github/callback', async (c) => {
   const { code, state, error: ghError } = c.req.query();
-  const cookieState = getCookieValue(c.req.header('cookie') ?? '', 'oauth_state');
+  const cookieState = getCookie(c, 'oauth_state');
   console.log('[github/callback] code:', !!code, '| state match:', state === cookieState, '| gh error:', ghError ?? 'none');
 
   if (ghError) {
@@ -311,12 +304,12 @@ router.get('/github/callback', async (c) => {
   console.log('[github/callback] upserting user — email:', email, '| name:', name);
 
   try {
-    const { user, org } = await findOrCreateOAuthUser('github', String(ghUser.id), email, name);
-    console.log('[github/callback] user upserted — userId:', user.id, '| orgId:', org.id);
+    const { user, org, isNew } = await findOrCreateOAuthUser('github', String(ghUser.id), email, name);
+    console.log('[github/callback] user upserted — userId:', user.id, '| orgId:', org.id, '| isNew:', isNew);
     const token = await signToken({ userId: user.id, orgId: org.id, role: user.role });
-    c.header('Set-Cookie', 'oauth_state=; HttpOnly; Path=/; Max-Age=0');
-    const dest = `${getAppUrl()}/auth/callback?token=${token}`;
-    console.log('[github/callback] redirecting to:', dest.replace(/token=.*/, 'token=<redacted>'));
+    setCookie(c, 'oauth_state', '', { httpOnly: true, path: '/', maxAge: 0 });
+    const dest = `${getAppUrl()}/auth/callback?token=${token}${isNew ? '&new=1' : ''}`;
+    console.log('[github/callback] redirecting to:', dest.replace(/token=[^&]*/, 'token=<redacted>'));
     return c.redirect(dest);
   } catch (err) {
     console.error('[github/callback] DB error:', err);

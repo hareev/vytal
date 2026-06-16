@@ -11,6 +11,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_email: 'Your account has no verified email address.',
   github_token_failed: 'GitHub authorisation failed. Please try again.',
   google_token_failed: 'Google authorisation failed. Please try again.',
+  github_denied: 'GitHub sign-in was cancelled.',
+  db_error: 'A database error occurred. Please try again.',
 }
 
 const btnStyle: React.CSSProperties = {
