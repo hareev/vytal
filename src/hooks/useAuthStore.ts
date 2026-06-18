@@ -8,7 +8,7 @@ import { mockApi } from '@/lib/api/mock'
 const DEMO_USER: User = {
   id: 'demo',
   orgId: 'org-demo',
-  email: 'demo@vytal.io',
+  email: 'demo@vytalinc.com',
   name: 'Demo User',
   role: 'owner',
   createdAt: new Date(),
@@ -42,6 +42,7 @@ interface AuthStore {
   error: string | null
 
   login: (email: string, password: string) => Promise<void>
+  loginAsDemo: () => void
   register: (orgName: string, email: string, name: string, password: string) => Promise<void>
   logout: () => void
   loadFromStorage: () => Promise<void>
@@ -57,6 +58,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   isAuthenticated: USE_MOCK,
   isLoading: false,
   error: null,
+
+  loginAsDemo: () => {
+    localStorage.setItem('vytal_demo_mode', 'true')
+    set({ user: DEMO_USER, org: DEMO_ORG, token: 'demo', isAuthenticated: true, error: null })
+  },
 
   login: async (email, password) => {
     set({ isLoading: true, error: null })
@@ -86,6 +92,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   logout: () => {
     localStorage.removeItem('vytal_token')
+    localStorage.removeItem('vytal_demo_mode')
     set({
       user: null,
       org: null,
@@ -96,6 +103,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   loadFromStorage: async () => {
+    if (localStorage.getItem('vytal_demo_mode') === 'true') {
+      set({ user: DEMO_USER, org: DEMO_ORG, token: 'demo', isAuthenticated: true })
+      return
+    }
+
     const token = localStorage.getItem('vytal_token')
     if (!token) return
 
