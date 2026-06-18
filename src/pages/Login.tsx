@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/hooks/useAuthStore'
 
 const iconGitHub = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -35,6 +36,13 @@ const btnStyle: React.CSSProperties = {
 export function Login() {
   const error = new URLSearchParams(window.location.search).get('error')
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? 'Something went wrong. Please try again.') : null
+  const loginAsDemo = useAuthStore((s) => s.loginAsDemo)
+  const navigate = useNavigate()
+
+  function handleDemoLogin() {
+    loginAsDemo()
+    navigate('/app')
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: 'var(--bg-page)' }}>
@@ -61,6 +69,19 @@ export function Login() {
           <button style={btnStyle} onClick={() => { window.location.href = '/api/auth/github' }}>
             {iconGitHub}
             Continue with GitHub
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '2px 0' }}>
+            <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>or</span>
+            <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
+          </div>
+
+          <button
+            style={{ ...btnStyle, background: 'var(--bg-page)', color: 'var(--text-secondary)', fontSize: '13px' }}
+            onClick={handleDemoLogin}
+          >
+            Try demo — demo@vytalinc.com
           </button>
 
           {errorMessage && (
