@@ -24,6 +24,7 @@ import { Service } from '@/pages/service/Service'
 import { KnowledgeBase } from '@/pages/knowledge/KnowledgeBase'
 import { ChannelCapture } from '@/pages/captures/ChannelCapture'
 import { Settings } from '@/pages/Settings'
+import { Integrations } from '@/pages/integrations/Integrations'
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="captures" element={<ChannelCapture />} />
           <Route path="captures/:captureId" element={<ChannelCapture />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="integrations" element={<Integrations />} />
         </Route>
 
         {/* Legacy route compat */}

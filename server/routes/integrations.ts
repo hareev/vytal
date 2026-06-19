@@ -190,7 +190,7 @@ router.get('/integrations/:provider/callback', async (c) => {
   const { code, state: orgId, error } = c.req.query();
 
   if (error || !code || !orgId) {
-    return c.redirect('/app/settings?tab=integrations&error=oauth_denied');
+    return c.redirect('/app/integrations?error=oauth_denied');
   }
 
   try {
@@ -238,10 +238,10 @@ router.get('/integrations/:provider/callback', async (c) => {
     }
   } catch (err) {
     console.error(`Integration callback error (${provider}):`, err);
-    return c.redirect('/app/settings?tab=integrations&error=callback_failed');
+    return c.redirect('/app/integrations?error=callback_failed');
   }
 
-  return c.redirect('/app/settings?tab=integrations&connected=' + provider);
+  return c.redirect('/app/integrations?connected=' + provider);
 });
 
 // DELETE /integrations/:provider — disconnect
