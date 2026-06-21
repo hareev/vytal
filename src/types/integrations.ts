@@ -1,6 +1,6 @@
 export type IntegrationProvider = 'gmail' | 'outlook' | 'slack' | 'teams'
 
-export type IntegrationStatus = 'active' | 'error' | 'revoked'
+export type IntegrationStatus = 'active' | 'error' | 'revoked' | 'configuring'
 
 export interface Integration {
   id: string

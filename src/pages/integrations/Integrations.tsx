@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import type { Integration, IntegrationProvider } from '@/types/integrations'
 import { api } from '@/lib/api/client'
 
 const USE_MOCK =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as { env?: { VITE_USE_MOCK?: string } }).env?.VITE_USE_MOCK === 'true')
+  typeof import.meta !== 'undefined' &&
+  (import.meta as { env?: { VITE_USE_MOCK?: string } }).env?.VITE_USE_MOCK === 'true'
 
 const PROVIDER_META: Record<IntegrationProvider, {
   label: string
@@ -66,6 +67,7 @@ export function Integrations() {
 
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const justConnected = urlParams?.get('connected') as IntegrationProvider | null
+  const justConfigured = urlParams?.get('configured') as IntegrationProvider | null
   const oauthError = urlParams?.get('error')
 
   useEffect(() => {
@@ -123,7 +125,7 @@ export function Integrations() {
         </p>
       </div>
 
-      {/* Post-OAuth feedback banners */}
+      {/* Feedback banners */}
       {justConnected && PROVIDER_META[justConnected] && (
         <div style={{
           padding: '10px 14px', borderRadius: '8px', marginBottom: '16px',
@@ -131,6 +133,15 @@ export function Integrations() {
           fontSize: '13px', color: 'var(--success-text)', fontWeight: 500,
         }}>
           {PROVIDER_META[justConnected].label} connected successfully. Incoming messages will now flow into Channel Capture.
+        </div>
+      )}
+      {justConfigured && PROVIDER_META[justConfigured] && (
+        <div style={{
+          padding: '10px 14px', borderRadius: '8px', marginBottom: '16px',
+          background: 'var(--accent-bg)', border: '0.5px solid var(--accent)',
+          fontSize: '13px', color: 'var(--accent)', fontWeight: 500,
+        }}>
+          {PROVIDER_META[justConfigured].label} credentials saved. Click <strong>Connect</strong> below to complete OAuth authorization.
         </div>
       )}
       {oauthError && (
@@ -159,7 +170,9 @@ export function Integrations() {
           </div>
         ) : ALL_PROVIDERS.map(provider => {
           const meta = PROVIDER_META[provider]
-          const connected = integrations.find(i => i.provider === provider)
+          const integration = integrations.find(i => i.provider === provider)
+          const isActive = integration?.status === 'active'
+          const isConfigured = integration?.status === 'configuring'
 
           return (
             <div
@@ -167,26 +180,26 @@ export function Integrations() {
               style={{
                 padding: '20px',
                 borderRadius: '12px',
-                border: `0.5px solid ${connected ? 'var(--accent)' : 'var(--border)'}`,
-                background: connected ? 'var(--accent-bg)' : 'var(--bg-card)',
+                border: `0.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                background: isActive ? 'var(--accent-bg)' : 'var(--bg-card)',
               }}
             >
               {/* Provider header */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
                 <div style={{
                   width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-                  background: connected ? meta.iconColor : 'var(--bg-secondary)',
-                  border: connected ? 'none' : '0.5px solid var(--border)',
+                  background: isActive ? meta.iconColor : 'var(--bg-secondary)',
+                  border: isActive ? 'none' : '0.5px solid var(--border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '15px', fontWeight: 700,
-                  color: connected ? '#fff' : 'var(--text-tertiary)',
+                  color: isActive ? '#fff' : 'var(--text-tertiary)',
                 }}>
                   {meta.icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                     <span style={{ fontSize: '14px', fontWeight: 600 }}>{meta.label}</span>
-                    {connected && (
+                    {isActive && (
                       <span style={{
                         fontSize: '10px', fontWeight: 600, padding: '2px 6px',
                         borderRadius: '10px', background: 'var(--accent)',
@@ -195,10 +208,23 @@ export function Integrations() {
                         Connected
                       </span>
                     )}
+                    {isConfigured && (
+                      <span style={{
+                        fontSize: '10px', fontWeight: 600, padding: '2px 6px',
+                        borderRadius: '10px', background: 'var(--bg-secondary)',
+                        color: 'var(--text-secondary)', border: '0.5px solid var(--border)', flexShrink: 0,
+                      }}>
+                        Credentials saved
+                      </span>
+                    )}
                   </div>
-                  {connected ? (
+                  {isActive ? (
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                      {connected.accountLabel ?? 'Active'} · Last sync: {formatRelativeTime(connected.lastSyncedAt)}
+                      {integration?.accountLabel ?? 'Active'} · Last sync: {formatRelativeTime(integration?.lastSyncedAt ?? null)}
+                    </div>
+                  ) : isConfigured ? (
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      Ready to authorize via OAuth
                     </div>
                   ) : (
                     <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Not connected</div>
@@ -224,8 +250,8 @@ export function Integrations() {
                 ))}
               </div>
 
-              {/* Action buttons */}
-              {connected ? (
+              {/* Action buttons — 3 states */}
+              {isActive ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => handleSync(provider)}
@@ -255,24 +281,47 @@ export function Integrations() {
                     {disconnecting === provider ? '…' : 'Disconnect'}
                   </button>
                 </div>
+              ) : isConfigured ? (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <a
+                    href={USE_MOCK ? '#' : `/api/integrations/${provider}/connect`}
+                    onClick={USE_MOCK
+                      ? (e) => { e.preventDefault(); alert('Integrations require real mode (VITE_USE_MOCK=false)') }
+                      : undefined}
+                    style={{
+                      flex: 1, display: 'block', padding: '7px', borderRadius: '7px',
+                      background: 'var(--accent)', textAlign: 'center',
+                      fontSize: '12px', fontWeight: 600, color: '#fff',
+                      textDecoration: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    Connect to {meta.label}
+                  </a>
+                  <Link
+                    to={`/app/integrations/${provider}/setup`}
+                    style={{
+                      padding: '7px 12px', borderRadius: '7px',
+                      border: '0.5px solid var(--border)', background: 'transparent',
+                      fontSize: '12px', fontWeight: 500,
+                      color: 'var(--text-secondary)', textDecoration: 'none',
+                      display: 'flex', alignItems: 'center',
+                    }}
+                  >
+                    Edit
+                  </Link>
+                </div>
               ) : (
-                <a
-                  href={USE_MOCK ? '#' : `/api/integrations/${provider}/connect`}
-                  onClick={USE_MOCK
-                    ? (e) => {
-                        e.preventDefault()
-                        alert('Integrations require real mode (VITE_USE_MOCK=false) and OAuth credentials in .env')
-                      }
-                    : undefined}
+                <Link
+                  to={`/app/integrations/${provider}/setup`}
                   style={{
                     display: 'block', padding: '7px', borderRadius: '7px',
-                    background: 'var(--accent)', textAlign: 'center',
-                    fontSize: '12px', fontWeight: 600, color: '#fff',
-                    textDecoration: 'none', cursor: 'pointer',
+                    border: '0.5px solid var(--border)', background: 'transparent',
+                    textAlign: 'center', fontSize: '12px', fontWeight: 600,
+                    color: 'var(--text-primary)', textDecoration: 'none', cursor: 'pointer',
                   }}
                 >
-                  Connect
-                </a>
+                  Set up
+                </Link>
               )}
             </div>
           )
@@ -292,10 +341,10 @@ export function Integrations() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {[
-            ['1', 'Connect', 'Authorize Vytal to read from your email or chat provider via OAuth.'],
-            ['2', 'Auto-capture', 'Incoming messages are automatically pulled into Channel Capture as raw captures.'],
-            ['3', 'AI analysis', 'Claude analyzes each message — extracting contacts, action items, deal signals, and sentiment.'],
-            ['4', 'Review & route', 'Open Channel Capture, review the extraction, and accept to route to Sales, Service, or Marketing.'],
+            ['1', 'Set up', 'Enter your OAuth app credentials from your provider\'s developer console.'],
+            ['2', 'Authorize', 'Click "Connect" to complete the OAuth flow — Vytal gets read-only access to your messages.'],
+            ['3', 'Auto-capture', 'Incoming messages are pulled into Channel Capture and analyzed by Claude.'],
+            ['4', 'Review & route', 'Open Channel Capture, review AI extractions, and accept to route into Sales, Service, or Marketing.'],
           ].map(([num, step, desc]) => (
             <div key={step} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
               <div style={{

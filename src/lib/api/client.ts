@@ -292,6 +292,12 @@ export class ApiClient {
     list: (): Promise<Integration[]> =>
       this.request<Integration[]>('GET', '/integrations'),
 
+    configure: (
+      provider: string,
+      data: { clientId: string; clientSecret: string; redirectUri: string },
+    ): Promise<{ ok: boolean }> =>
+      this.request<{ ok: boolean }>('POST', `/integrations/${provider}/configure`, data),
+
     disconnect: (provider: string): Promise<void> =>
       this.request<void>('DELETE', `/integrations/${provider}`),
 

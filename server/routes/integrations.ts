@@ -52,20 +52,51 @@ const OAUTH_CONFIG = {
 type Provider = keyof typeof OAUTH_CONFIG;
 
 // ---------------------------------------------------------------------------
+// Helper: resolve OAuth credentials — env vars first, then DB config
+// ---------------------------------------------------------------------------
+
+interface ProviderCredentials {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+async function resolveCredentials(provider: Provider, orgId: string): Promise<ProviderCredentials | null> {
+  const cfg = OAUTH_CONFIG[provider];
+  const clientId = cfg.clientId();
+  if (clientId) {
+    return { clientId, clientSecret: cfg.clientSecret(), redirectUri: cfg.redirectUri() };
+  }
+  const [row] = await db
+    .select({ config: schema.integrations.config })
+    .from(schema.integrations)
+    .where(and(
+      eq(schema.integrations.org_id, orgId),
+      eq(schema.integrations.provider, provider),
+    ))
+    .limit(1);
+  if (!row?.config) return null;
+  const c = row.config as { client_id?: string; client_secret?: string; redirect_uri?: string };
+  if (!c.client_id || !c.client_secret || !c.redirect_uri) return null;
+  return { clientId: c.client_id, clientSecret: c.client_secret, redirectUri: c.redirect_uri };
+}
+
+// ---------------------------------------------------------------------------
 // Helper: exchange code for tokens
 // ---------------------------------------------------------------------------
 
 async function exchangeCode(
   provider: Provider,
   code: string,
+  credentials: ProviderCredentials,
 ): Promise<{ accessToken: string; refreshToken?: string; expiresIn?: number; scope?: string }> {
   const cfg = OAUTH_CONFIG[provider];
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
-    redirect_uri: cfg.redirectUri(),
-    client_id: cfg.clientId(),
-    client_secret: cfg.clientSecret(),
+    redirect_uri: credentials.redirectUri,
+    client_id: credentials.clientId,
+    client_secret: credentials.clientSecret,
   });
 
   const res = await fetch(cfg.tokenUrl, {
@@ -158,6 +189,57 @@ router.get('/integrations', async (c) => {
   return c.json(rows);
 });
 
+// POST /integrations/:provider/configure — save OAuth app credentials to DB
+router.post('/integrations/:provider/configure', async (c) => {
+  const auth = c.get('auth');
+  const provider = c.req.param('provider') as Provider;
+
+  if (!(provider in OAUTH_CONFIG)) {
+    return c.json({ error: 'Unknown provider' }, 400);
+  }
+
+  const body = await c.req.json().catch(() => ({})) as {
+    clientId?: string; clientSecret?: string; redirectUri?: string;
+  };
+  if (!body.clientId || !body.clientSecret || !body.redirectUri) {
+    return c.json({ error: 'clientId, clientSecret, redirectUri are required' }, 400);
+  }
+
+  const config = { client_id: body.clientId, client_secret: body.clientSecret, redirect_uri: body.redirectUri };
+
+  const existing = await db
+    .select({ id: schema.integrations.id, status: schema.integrations.status })
+    .from(schema.integrations)
+    .where(and(
+      eq(schema.integrations.org_id, auth.orgId),
+      eq(schema.integrations.provider, provider),
+    ))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(schema.integrations)
+      .set({ config, updated_at: new Date() })
+      .where(eq(schema.integrations.id, existing[0].id));
+    if (existing[0].status !== 'active') {
+      await db
+        .update(schema.integrations)
+        .set({ status: 'configuring' as 'active', updated_at: new Date() })
+        .where(eq(schema.integrations.id, existing[0].id));
+    }
+  } else {
+    await db.insert(schema.integrations).values({
+      org_id: auth.orgId,
+      provider,
+      access_token: '',
+      config,
+      status: 'configuring' as 'active',
+    });
+  }
+
+  return c.json({ ok: true });
+});
+
 // GET /integrations/:provider/connect — redirect to OAuth consent
 router.get('/integrations/:provider/connect', async (c) => {
   const auth = c.get('auth');
@@ -166,14 +248,16 @@ router.get('/integrations/:provider/connect', async (c) => {
   if (!(provider in OAUTH_CONFIG)) {
     return c.json({ error: 'Unknown provider' }, 400);
   }
-  if (!OAUTH_CONFIG[provider].clientId()) {
-    return c.json({ error: `${provider} integration not configured — add env vars` }, 503);
+
+  const credentials = await resolveCredentials(provider, auth.orgId);
+  if (!credentials) {
+    return c.redirect(`/app/integrations/${provider}/setup`);
   }
 
   const cfg = OAUTH_CONFIG[provider];
   const params = new URLSearchParams({
-    client_id: cfg.clientId(),
-    redirect_uri: cfg.redirectUri(),
+    client_id: credentials.clientId,
+    redirect_uri: credentials.redirectUri,
     response_type: 'code',
     scope: cfg.scope,
     state: auth.orgId,
@@ -194,7 +278,11 @@ router.get('/integrations/:provider/callback', async (c) => {
   }
 
   try {
-    const tokens = await exchangeCode(provider, code);
+    const credentials = await resolveCredentials(provider, orgId);
+    if (!credentials) {
+      return c.redirect('/app/integrations?error=not_configured');
+    }
+    const tokens = await exchangeCode(provider, code, credentials);
     const accountLabel = await fetchAccountLabel(provider, tokens.accessToken);
 
     const expiresAt = tokens.expiresIn

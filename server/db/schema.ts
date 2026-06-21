@@ -402,7 +402,7 @@ export const integrations = pgTable('integrations', {
   scope: text('scope'),
   config: jsonb('config').notNull().default('{}'),
   status: text('status', {
-    enum: ['active', 'error', 'revoked'],
+    enum: ['active', 'error', 'revoked', 'configuring'],
   }).notNull().default('active'),
   last_synced_at: timestamp('last_synced_at'),
   created_at: timestamp('created_at').defaultNow().notNull(),
