@@ -46,6 +46,14 @@ function IconKnowledge() {
     </svg>
   )
 }
+function IconCrmValidator() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 1L2 4v4c0 3 2.5 5.5 6 7 3.5-1.5 6-4 6-7V4L8 1z" />
+      <path d="M5.5 8l2 2 3.5-3.5" />
+    </svg>
+  )
+}
 function IconCapture() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -77,6 +85,12 @@ const NAV_ITEMS: NavItem[] = [
     path: '/app/captures',
     icon: IconCapture,
     module: 'captures',
+  },
+  {
+    label: 'CRM Validator',
+    path: '/app/crm-validator',
+    icon: IconCrmValidator,
+    module: null,
   },
   {
     label: 'Onboarding & Scan',

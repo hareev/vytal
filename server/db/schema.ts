@@ -385,6 +385,32 @@ export const channel_events = pgTable('channel_events', {
 });
 
 // ---------------------------------------------------------------------------
+// crm_submissions — CRM Validator community directory
+// ---------------------------------------------------------------------------
+export const crm_submissions = pgTable('crm_submissions', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  user_id: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  org_id: uuid('org_id').references(() => organizations.id, { onDelete: 'set null' }),
+  submitter_name: text('submitter_name'),
+  crm_name: text('crm_name').notNull(),
+  repo_url: text('repo_url'),
+  app_url: text('app_url'),
+  description: text('description').notNull(),
+  built_for: text('built_for'),
+  status: text('status', {
+    enum: ['pending', 'analyzing', 'completed', 'failed'],
+  }).notNull().default('pending'),
+  verdict: text('verdict', {
+    enum: ['looks_good', 'needs_improvement', 'not_a_crm'],
+  }),
+  score: integer('score'),
+  ai_report: jsonb('ai_report'),
+  error: text('error'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
 // integrations — connected provider accounts (Gmail, Outlook, Slack, Teams)
 // ---------------------------------------------------------------------------
 export const integrations = pgTable('integrations', {
