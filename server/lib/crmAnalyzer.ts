@@ -132,12 +132,17 @@ async function fetchLiveUrlContext(appUrl: string): Promise<string> {
     if (!res.ok) return `Live URL returned status ${res.status}`;
 
     const html = await res.text();
-    const stripped = html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    let stripped = html;
+    let previous: string;
+    do {
+      previous = stripped;
+      stripped = stripped
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    } while (stripped !== previous);
 
     return `Live App Content (first 3000 chars):\n${stripped.slice(0, 3000)}`;
   } catch {
