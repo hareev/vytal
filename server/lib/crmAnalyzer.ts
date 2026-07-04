@@ -170,7 +170,14 @@ export async function analyzeCrm(
   const contextParts: string[] = [];
 
   if (repoUrl) {
-    const isGithub = repoUrl.includes('github.com');
+    let isGithub = false;
+    try {
+      const { hostname } = new URL(repoUrl);
+      const normalizedHost = hostname.toLowerCase();
+      isGithub = normalizedHost === 'github.com' || normalizedHost === 'www.github.com';
+    } catch {
+      isGithub = false;
+    }
     if (isGithub) {
       contextParts.push(await fetchGithubContext(repoUrl));
     } else {
