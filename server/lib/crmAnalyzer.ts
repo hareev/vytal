@@ -139,14 +139,26 @@ async function fetchLiveUrlContext(appUrl: string): Promise<string> {
     if (!res.ok) return `Live URL returned status ${res.status}`;
 
     const html = await res.text();
-    const stripped = html
-      .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
-      .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
-      .replace(/<[\s\S]*?>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const metaParts: string[] = [];
 
-    return `Live App Content (first 3000 chars):\n${stripped.slice(0, 3000)}`;
+    const title = /<title[^>]*>([^<]{0,500})<\/title>/i.exec(html)?.[1]?.trim();
+    if (title) metaParts.push(`Title: ${title}`);
+
+    const desc = (
+      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']{0,500})["']/i.exec(html) ??
+      /<meta[^>]+content=["']([^"']{0,500})["'][^>]+name=["']description["']/i.exec(html)
+    )?.[1]?.trim();
+    if (desc) metaParts.push(`Description: ${desc}`);
+
+    const ogTitle = /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']{0,500})["']/i.exec(html)?.[1]?.trim();
+    if (ogTitle) metaParts.push(`App Name: ${ogTitle}`);
+
+    const ogDesc = /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']{0,500})["']/i.exec(html)?.[1]?.trim();
+    if (ogDesc) metaParts.push(`App Description: ${ogDesc}`);
+
+    return metaParts.length > 0
+      ? `Live App Info:\n${metaParts.join('\n')}`
+      : `Live App URL: ${appUrl} (no metadata extractable)`;
   } catch {
     clearTimeout(timer);
     return `Could not fetch live URL: ${appUrl}`;
