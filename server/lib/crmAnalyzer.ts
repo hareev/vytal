@@ -36,6 +36,13 @@ interface AnthropicResponse {
 // GitHub context fetcher
 // ---------------------------------------------------------------------------
 
+function isGithubUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === 'github.com' || hostname === 'www.github.com';
+  } catch { return false; }
+}
+
 function parseGithubUrl(url: string): { owner: string; repo: string } | null {
   try {
     const match = url.match(/github\.com\/([^/]+)\/([^/?\s#]+)/);
@@ -132,17 +139,12 @@ async function fetchLiveUrlContext(appUrl: string): Promise<string> {
     if (!res.ok) return `Live URL returned status ${res.status}`;
 
     const html = await res.text();
-    let stripped = html;
-    let previous: string;
-    do {
-      previous = stripped;
-      stripped = stripped
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-        .replace(/[<>]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    } while (stripped !== previous);
+    const stripped = html
+      .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+      .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
+      .replace(/<[\s\S]*?>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     return `Live App Content (first 3000 chars):\n${stripped.slice(0, 3000)}`;
   } catch {
@@ -170,15 +172,7 @@ export async function analyzeCrm(
   const contextParts: string[] = [];
 
   if (repoUrl) {
-    let isGithub = false;
-    try {
-      const { hostname } = new URL(repoUrl);
-      const normalizedHost = hostname.toLowerCase();
-      isGithub = normalizedHost === 'github.com' || normalizedHost === 'www.github.com';
-    } catch {
-      isGithub = false;
-    }
-    if (isGithub) {
+    if (isGithubUrl(repoUrl)) {
       contextParts.push(await fetchGithubContext(repoUrl));
     } else {
       contextParts.push(`Repository URL: ${repoUrl}`);
