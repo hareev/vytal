@@ -139,7 +139,7 @@ async function fetchLiveUrlContext(appUrl: string): Promise<string> {
       stripped = stripped
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
         .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
+        .replace(/[<>]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
     } while (stripped !== previous);
