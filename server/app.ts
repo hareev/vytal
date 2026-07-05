@@ -16,6 +16,7 @@ import { sequenceRoutes } from './routes/sequences.js';
 import { captureRoutes } from './routes/captures.js';
 import { ingestRoutes } from './routes/ingest.js';
 import { integrationRoutes } from './routes/integrations.js';
+import { crmReviewRoutes } from './routes/crmReviews.js';
 
 const app = new Hono();
 
@@ -44,6 +45,7 @@ app.route('/api/sequences', sequenceRoutes);
 app.route('/api/captures', captureRoutes);
 app.route('/api/ingest', ingestRoutes);
 app.route('/api', integrationRoutes);
+app.route('/api/crm-reviews', crmReviewRoutes);
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
 

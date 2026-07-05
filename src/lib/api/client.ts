@@ -5,6 +5,7 @@ import type { User, Org } from '@/types/auth'
 import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
 import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata, AcceptCaptureOptions, AcceptCaptureResult } from '@/types/captures'
 import type { Integration } from '@/types/integrations'
+import type { CrmSubmission, CreateCrmSubmissionInput } from '@/types/crmReview'
 
 // ─── Request / Response shapes ────────────────────────────────────────────────
 
@@ -297,6 +298,33 @@ export class ApiClient {
 
     sync: (provider: string): Promise<void> =>
       this.request<void>('POST', `/integrations/${provider}/sync`),
+  }
+
+  // ─── CRM Reviews ───────────────────────────────────────────────────────────
+
+  crmReviews = {
+    list: (params?: { page?: number; limit?: number; verdict?: string }): Promise<{ data: CrmSubmission[]; meta: { page: number; limit: number; total: number } }> => {
+      const p: ListParams = {}
+      if (params?.page !== undefined) p['page'] = params.page
+      if (params?.limit !== undefined) p['limit'] = params.limit
+      if (params?.verdict !== undefined) p['verdict'] = params.verdict
+      return this.request('GET', this.buildQuery('/crm-reviews', p))
+    },
+
+    get: (id: string): Promise<CrmSubmission> =>
+      this.request<CrmSubmission>('GET', `/crm-reviews/${id}`),
+
+    create: (data: CreateCrmSubmissionInput): Promise<CrmSubmission> =>
+      this.request<CrmSubmission>('POST', '/crm-reviews', {
+        crmName: data.crmName,
+        repoUrl: data.repoUrl,
+        appUrl: data.appUrl,
+        description: data.description,
+        builtFor: data.builtFor,
+      }),
+
+    reanalyze: (id: string): Promise<CrmSubmission> =>
+      this.request<CrmSubmission>('POST', `/crm-reviews/${id}/analyze`),
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
