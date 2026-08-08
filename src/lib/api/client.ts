@@ -6,6 +6,7 @@ import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
 import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata, AcceptCaptureOptions, AcceptCaptureResult } from '@/types/captures'
 import type { Integration } from '@/types/integrations'
 import type { CrmSubmission, CreateCrmSubmissionInput } from '@/types/crmReview'
+import type { AccountSummary, AccountProfile } from '@/types/customers'
 
 // ─── Request / Response shapes ────────────────────────────────────────────────
 
@@ -325,6 +326,16 @@ export class ApiClient {
 
     reanalyze: (id: string): Promise<CrmSubmission> =>
       this.request<CrmSubmission>('POST', `/crm-reviews/${id}/analyze`),
+  }
+
+  // ─── Customers ─────────────────────────────────────────────────────────────
+
+  customers = {
+    search: (q: string): Promise<AccountSummary[]> =>
+      this.request<AccountSummary[]>('GET', `/customers/search?q=${encodeURIComponent(q)}`),
+
+    getAccount: (slug: string): Promise<AccountProfile> =>
+      this.request<AccountProfile>('GET', `/customers/${slug}`),
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────

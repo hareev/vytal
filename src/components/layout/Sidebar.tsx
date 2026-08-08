@@ -54,6 +54,17 @@ function IconCrmValidator() {
     </svg>
   )
 }
+function IconCustomer() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="14" height="10" rx="1.5" />
+      <path d="M4 4V3a2 2 0 014 0v1M8 4V3a2 2 0 014 0v1" />
+      <circle cx="5.5" cy="9" r="1.5" />
+      <path d="M3 13c0-1.38.895-2.5 2.5-2.5S8 11.62 8 13" />
+      <path d="M10 9h3M10 11.5h2" />
+    </svg>
+  )
+}
 function IconCapture() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -80,6 +91,12 @@ function IconSettings() {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  {
+    label: 'Customers',
+    path: '/app/customers',
+    icon: IconCustomer,
+    module: 'customers',
+  },
   {
     label: 'Channel Capture',
     path: '/app/captures',

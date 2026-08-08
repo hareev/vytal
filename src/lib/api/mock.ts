@@ -5,6 +5,7 @@ import type { User, Org } from '@/types/auth'
 import type { KbCategory, KbArticle, ArticleStatus } from '@/types/kb'
 import type { ChannelCapture, ChannelType, CaptureStatus, CaptureMetadata, AcceptCaptureOptions, AcceptCaptureResult } from '@/types/captures'
 import type { ListParams, AuthLoginResponse, AuthRegisterResponse, MeResponse } from './client'
+import type { AccountSummary, AccountProfile, AccountContact, AccountDeal, AccountSignal } from '@/types/customers'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ const DEMO_ORG: Org = {
   name: 'Acme Corp',
   slug: 'acme',
   plan: 'pro',
-  modules: { sales: true, marketing: true, service: true, health: true, knowledge: true, captures: true },
+  modules: { sales: true, marketing: true, service: true, health: true, knowledge: true, captures: true, customers: true },
   createdAt: daysAgo(180),
 }
 
@@ -1146,6 +1147,131 @@ class MockApiClient {
       }
       captureMap.set(captureId, capture)
       return resolve({ captureId, status: 'raw' })
+    },
+  }
+
+  // ─── Customers ───────────────────────────────────────────────────────────────
+
+  customers = {
+    search: (q: string): Promise<AccountSummary[]> => {
+      const lower = q.toLowerCase().trim()
+      if (!lower) return resolve([])
+
+      // Group contacts by company, filter by query
+      const companyMap = new Map<string, Contact[]>()
+      for (const contact of contactMap.values()) {
+        const co = contact.company?.trim()
+        if (!co) continue
+        if (!co.toLowerCase().includes(lower)) continue
+        const existing = companyMap.get(co) ?? []
+        existing.push(contact)
+        companyMap.set(co, existing)
+      }
+
+      const results: AccountSummary[] = []
+      for (const [companyName, contacts] of companyMap.entries()) {
+        const contactIds = new Set(contacts.map((c) => c.id))
+        const relatedDeals = [...dealMap.values()].filter((d) => d.contactId != null && contactIds.has(d.contactId))
+        const openDealValue = relatedDeals
+          .filter((d) => d.status === 'open')
+          .reduce((sum, d) => sum + d.value, 0)
+
+        // Determine primary status by priority: customer > prospect > lead > churned
+        const statusPriority: Record<Contact['status'], number> = { customer: 4, prospect: 3, lead: 2, churned: 1 }
+        const primaryStatus = contacts.reduce<Contact['status']>((best, c) =>
+          (statusPriority[c.status] ?? 0) > (statusPriority[best] ?? 0) ? c.status : best
+        , 'lead')
+
+        results.push({
+          companySlug: companyName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+          companyName,
+          contactCount: contacts.length,
+          dealCount: relatedDeals.length,
+          openDealValue,
+          primaryStatus,
+        })
+      }
+
+      return resolve(results.sort((a, b) => b.contactCount - a.contactCount))
+    },
+
+    getAccount: (slug: string): Promise<AccountProfile> => {
+      // Find company name from slug by matching contacts
+      let companyName: string | undefined
+      for (const contact of contactMap.values()) {
+        const co = contact.company?.trim()
+        if (!co) continue
+        const candidateSlug = co.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+        if (candidateSlug === slug) { companyName = co; break }
+      }
+
+      if (!companyName) return Promise.reject(new Error(`Company not found: ${slug}`))
+
+      const name = companyName
+      const companyContacts = [...contactMap.values()].filter(
+        (c) => c.company?.trim() === name,
+      )
+      const contactIds = new Set(companyContacts.map((c) => c.id))
+      const relatedDeals = [...dealMap.values()].filter((d) => d.contactId != null && contactIds.has(d.contactId))
+
+      const accountContacts: AccountContact[] = companyContacts.map((c) => ({
+        id: c.id,
+        name: `${c.firstName} ${c.lastName}`,
+        email: c.email,
+        phone: c.phone,
+        status: c.status,
+        tags: c.tags ?? [],
+      }))
+
+      const stageNameMap = new Map<string, string>()
+      for (const s of STAGES_RAW) stageNameMap.set(s.id, s.name)
+
+      const accountDeals: AccountDeal[] = relatedDeals.map((d) => ({
+        id: d.id,
+        title: d.title,
+        value: d.value,
+        currency: d.currency,
+        stage: stageNameMap.get(d.stageId) ?? d.stageId,
+        status: d.status,
+        closeDate: d.closeDate,
+      }))
+
+      // Assemble signals from captures that mention this company
+      const signals: AccountSignal[] = []
+      for (const cap of captureMap.values()) {
+        const mentions = cap.extraction?.contacts?.some(
+          (ec: { company?: string }) => ec.company?.toLowerCase().includes(name.toLowerCase()),
+        )
+        const linked = [...contactIds].some((cid) => cap.linkedContactIds.includes(cid))
+        if ((mentions || linked) && cap.extraction?.summary) {
+          signals.push({
+            source: 'capture',
+            type: cap.channelType,
+            summary: cap.extraction.summary as string,
+            capturedAt: cap.createdAt.toISOString().split('T')[0],
+          })
+        }
+      }
+
+      // Add deal signals
+      for (const d of relatedDeals) {
+        signals.push({
+          source: 'deal',
+          type: 'deal_activity',
+          summary: `"${d.title}" — $${d.value.toLocaleString()} | ${d.status === 'open' ? 'In progress' : d.status}`,
+          capturedAt: d.updatedAt.toISOString().split('T')[0],
+        })
+      }
+
+      const profile: AccountProfile = {
+        companySlug: slug,
+        companyName: name,
+        contacts: accountContacts,
+        deals: accountDeals,
+        signals: signals.slice(0, 10),
+      }
+
+      return resolve(profile)
     },
   }
 }

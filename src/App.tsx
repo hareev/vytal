@@ -26,6 +26,7 @@ import { ChannelCapture } from '@/pages/captures/ChannelCapture'
 import { Settings } from '@/pages/Settings'
 import { Integrations } from '@/pages/integrations/Integrations'
 import { CrmValidator } from '@/pages/crmReviews/CrmValidator'
+import { Customers } from '@/pages/customers/Customers'
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
@@ -70,6 +71,8 @@ export default function App() {
           <Route path="integrations" element={<Integrations />} />
           <Route path="crm-validator" element={<CrmValidator />} />
           <Route path="crm-validator/:submissionId" element={<CrmValidator />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="customers/:companySlug" element={<Customers />} />
         </Route>
 
         {/* Legacy route compat */}

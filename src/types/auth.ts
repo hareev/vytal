@@ -24,6 +24,7 @@ export interface Org {
     health: boolean
     knowledge: boolean
     captures: boolean
+    customers: boolean
   }
   createdAt: Date
 }

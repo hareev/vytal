@@ -19,7 +19,7 @@ const DEMO_ORG: Org = {
   name: 'Acme Corp',
   slug: 'acme',
   plan: 'pro',
-  modules: { sales: true, marketing: true, service: true, health: true, knowledge: true, captures: true },
+  modules: { sales: true, marketing: true, service: true, health: true, knowledge: true, captures: true, customers: true },
   createdAt: new Date(),
 }
 
