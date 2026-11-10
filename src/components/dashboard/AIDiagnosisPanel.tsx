@@ -80,19 +80,20 @@ interface SnapProps {
 }
 
 export function OrgSnapshot({ scored }: SnapProps) {
-  const { dimensions } = scored
-  const totalFlowIssues = dimensions.automation.issues.length
-  const schemaIssues = dimensions.schema.issues
+  const { raw } = scored
+  const audit = raw.security.auditLogEnabled
 
   const schemaStats = [
-    { label: 'Custom entities', value: 0, warn: false },
-    { label: 'Unused entities', value: schemaIssues.find(i => i.title.includes('unused'))?.affectedCount ?? 0, warn: true },
-    { label: 'Deprecated objects', value: schemaIssues.find(i => i.title.includes('deprecated'))?.affectedCount ?? 0, warn: true },
+    { label: 'Total entities', value: shown(raw.schema.totalEntities), warn: false },
+    { label: 'Custom entities', value: shown(raw.schema.customEntities), warn: false },
+    { label: 'Unused entities', value: shown(raw.schema.unusedEntities), warn: true },
+    { label: 'Deprecated objects', value: shown(raw.schema.deprecatedObjects), warn: true },
   ]
 
   const autoStats = [
-    { label: 'Flow issues', value: totalFlowIssues, warn: totalFlowIssues > 0 },
-    { label: 'Circular deps', value: dimensions.automation.issues.filter(i => i.title.includes('circular')).length, warn: true },
+    { label: 'Active flows', value: shown(raw.automation.activeFlows), warn: false },
+    { label: 'Inactive flows', value: shown(raw.automation.inactiveFlows), warn: true },
+    { label: 'Circular deps', value: shown(raw.automation.circularDependencies), warn: true },
   ]
 
   return (
@@ -108,11 +109,18 @@ export function OrgSnapshot({ scored }: SnapProps) {
       </Section>
 
       <Section title="Security">
-        <StatRow label="Dormant admins" value={dimensions.security.issues.find(i => i.title.includes('dormant'))?.affectedCount ?? 0} warn />
-        <StatRow label="Audit logging" value={dimensions.security.issues.find(i => i.title.includes('Audit')) ? 'Off' : 'On'} warn={!!dimensions.security.issues.find(i => i.title.includes('Audit'))} />
+        <StatRow label="Admin users" value={shown(raw.security.adminUsers)} warn={false} />
+        <StatRow label="Dormant admins" value={shown(raw.security.dormantAdmins)} warn />
+        <StatRow label="Audit logging" value={audit === null ? NOT_MEASURED : audit ? 'On' : 'Off'} warn={audit === false} />
       </Section>
     </div>
   )
+}
+
+const NOT_MEASURED = 'Not measured'
+
+function shown(value: number | null): number | string {
+  return value === null ? NOT_MEASURED : value
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -126,10 +134,12 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function StatRow({ label, value, warn }: { label: string; value: number | string; warn: boolean }) {
   const isZero = value === 0 || value === 'On'
+  const unmeasured = value === NOT_MEASURED
+  const color = unmeasured ? 'var(--text-tertiary)' : warn && !isZero ? 'var(--danger-text)' : 'var(--text-primary)'
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: '12px' }}>
       <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-      <span style={{ fontWeight: 500, color: warn && !isZero ? 'var(--danger-text)' : 'var(--text-primary)' }}>{String(value)}</span>
+      <span style={{ fontWeight: unmeasured ? 400 : 500, color }}>{String(value)}</span>
     </div>
   )
 }

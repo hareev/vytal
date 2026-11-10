@@ -1,116 +1,65 @@
-import type { ScoredHealthPayload, AIDiagnosis, AIRecommendation } from '@/types/health'
+import type { ScoredHealthPayload, AIDiagnosis } from '@/types/health'
 
-const MODEL = import.meta.env.VITE_CLAUDE_MODEL || 'claude-sonnet-4-20250514'
-const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
+// The AI diagnosis runs on the API server (POST /api/health/diagnosis) so the
+// Anthropic key is never shipped in the browser bundle. Set ANTHROPIC_API_KEY
+// (and optionally ANTHROPIC_MODEL) on the server.
+
+const API_BASE =
+  (typeof import.meta !== 'undefined' &&
+    (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ||
+  'http://localhost:3001/api'
 
 /**
- * Call the Claude API with the scored health payload and get back a structured
+ * Send the scored health report to the server and get back a structured
  * diagnosis: risk level, summary, and ranked recommendations.
+ *
+ * Only scores, check coverage and issue titles/descriptions are sent — not the
+ * raw org data.
  */
-export async function generateDiagnosis(
-  scored: ScoredHealthPayload
-): Promise<AIDiagnosis> {
-  if (!API_KEY) {
-    throw new Error('VITE_ANTHROPIC_API_KEY is not set. Add it to your .env file.')
-  }
+export async function generateDiagnosis(scored: ScoredHealthPayload): Promise<AIDiagnosis> {
+  const token = localStorage.getItem('vytal_token')
 
-  const allIssues = Object.values(scored.dimensions).flatMap(d => d.issues)
-
-  const prompt = buildPrompt(scored, allIssues.length)
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(`${API_BASE}/health/diagnosis`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1500,
-      system: `You are a senior CRM architect and platform health expert.
-You receive a scored health report for a CRM org and must return a structured JSON diagnosis.
-Respond ONLY with valid JSON — no markdown, no explanation, no backticks.
-Your recommendations must be specific, actionable, and ordered by impact.`,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+    body: JSON.stringify(toRequest(scored)),
   })
 
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Claude API error ${res.status}: ${err}`)
+    const body = await res.json().catch(() => ({ error: res.statusText })) as { error?: string }
+    throw new Error(body.error ?? `AI diagnosis failed (${res.status})`)
   }
 
-  const data = await res.json()
-  const raw = data.content?.[0]?.text ?? '{}'
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      summary: string
-      riskLevel: AIDiagnosis['riskLevel']
-      recommendations: Array<{
-        title: string
-        rationale: string
-        effort: AIRecommendation['effort']
-        impact: AIRecommendation['impact']
-        dimension: AIRecommendation['dimension']
-      }>
-    }
-
-    return {
-      summary: parsed.summary,
-      riskLevel: parsed.riskLevel,
-      recommendations: parsed.recommendations.map((r, i) => ({ ...r, rank: i + 1 })),
-      generatedAt: new Date(),
-    }
-  } catch {
-    throw new Error('Claude returned invalid JSON. Check your API key and try again.')
-  }
+  const data = await res.json() as Omit<AIDiagnosis, 'generatedAt'> & { generatedAt: string }
+  return { ...data, generatedAt: new Date(data.generatedAt) }
 }
 
-// ─── Prompt construction ──────────────────────────────────────────────────────
-
-function buildPrompt(scored: ScoredHealthPayload, totalIssues: number): string {
+function toRequest(scored: ScoredHealthPayload) {
   const dims = scored.dimensions
-  const topIssues = Object.values(dims)
-    .flatMap(d => d.issues)
-    .filter(i => i.severity === 'critical' || i.severity === 'high')
-    .slice(0, 8)
-    .map(i => `- [${i.severity.toUpperCase()}] ${i.title}: ${i.description}`)
-    .join('\n')
+  const dim = (d: ScoredHealthPayload['dimensions'][keyof ScoredHealthPayload['dimensions']]) => ({
+    label: d.label,
+    score: d.score,
+    checksMeasured: d.checksMeasured,
+    checksTotal: d.checksTotal,
+    notMeasured: d.notMeasured,
+    issues: d.issues.map(i => ({ severity: i.severity, title: i.title, description: i.description })),
+  })
 
-  return `
-CRM Health Report
-Platform: ${scored.connection.platform}
-Org: ${scored.connection.orgName} (${scored.connection.orgUrl})
-Overall health score: ${scored.overallScore}/100
-Total issues found: ${totalIssues}
-
-Dimension scores:
-- Schema hygiene: ${dims.schema.score}/100
-- Automation complexity: ${dims.automation.score}/100
-- Data quality: ${dims.dataQuality.score}/100
-- Security posture: ${dims.security.score}/100
-- Adoption health: ${dims.adoption.score}/100
-
-Top critical and high issues:
-${topIssues || 'None identified.'}
-
-Return a JSON object with this exact shape:
-{
-  "summary": "<2-3 sentence plain-english summary of the org's health state and the most urgent risk>",
-  "riskLevel": "<one of: healthy | watch | attention | critical>",
-  "recommendations": [
-    {
-      "title": "<short actionable title>",
-      "rationale": "<1-2 sentences explaining why this matters and the expected impact>",
-      "effort": "<low | medium | high>",
-      "impact": "<low | medium | high>",
-      "dimension": "<schema | automation | dataQuality | security | adoption>"
-    }
-  ]
-}
-
-Return 3-5 recommendations, ordered by (impact DESC, effort ASC) — quick wins first.
-`
+  return {
+    platform: scored.connection.platform,
+    orgName: scored.connection.orgName,
+    overallScore: scored.overallScore,
+    checksMeasured: scored.checksMeasured,
+    checksTotal: scored.checksTotal,
+    dimensions: {
+      schema: dim(dims.schema),
+      automation: dim(dims.automation),
+      dataQuality: dim(dims.dataQuality),
+      security: dim(dims.security),
+      adoption: dim(dims.adoption),
+    },
+  }
 }

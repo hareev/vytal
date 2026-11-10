@@ -97,34 +97,35 @@ export class SalesforceAdapter implements BaseAdapter {
         '/services/data/v59.0/tooling/query?q=SELECT+DeveloperName,QualifiedApiName+FROM+CustomObject'
       )
 
-      const total = result.totalSize
-      const custom = result.records.length
-      const namingViolations = result.records.filter(
-        r => r.DeveloperName && !/^[A-Z][a-zA-Z0-9]*$/.test(r.DeveloperName)
-      ).length
+      // This query returns custom objects only, so it can't give the total
+      // object count (standard + custom). The custom ratio is not measured
+      // until standard objects are counted too (e.g. via EntityDefinition).
+      const custom = result.totalSize
 
       const fieldResult = await this.apiGet<{ totalSize: number }>(
         '/services/data/v59.0/tooling/query?q=SELECT+COUNT()+FROM+CustomField'
-      ).catch(() => ({ totalSize: 0 }))
+      ).catch(() => null)
 
       return {
-        totalEntities: total,
+        totalEntities: null,
         customEntities: custom,
-        unusedEntities: 0,
-        totalFields: fieldResult.totalSize,
-        unusedFields: 0,
-        deprecatedObjects: 0,
-        namingViolations,
+        unusedEntities: null,
+        totalFields: fieldResult ? fieldResult.totalSize : null,
+        unusedFields: null,
+        deprecatedObjects: null,
+        // The previous PascalCase-only rule flagged Salesforce's own
+        // underscore convention; not measured until a real naming policy is set.
+        namingViolations: null,
       }
     } catch {
       return {
-        totalEntities: 0,
-        customEntities: 0,
-        unusedEntities: 0,
-        totalFields: 0,
-        unusedFields: 0,
-        deprecatedObjects: 0,
-        namingViolations: 0,
+        totalEntities: null,
+        customEntities: null,
+        unusedEntities: null,
+        totalFields: null,
+        unusedFields: null,
+        deprecatedObjects: null,
+        namingViolations: null,
       }
     }
   }
@@ -141,60 +142,45 @@ export class SalesforceAdapter implements BaseAdapter {
         '/services/data/v59.0/tooling/query?q=SELECT+Status,ApiVersion+FROM+Flow'
       )
 
+      // Tooling API Flow rows are flow versions, not flows, so these counts
+      // are approximate until versions are grouped by FlowDefinition.
       const total = result.totalSize
       const active = result.records.filter(f => f.Status === 'Active').length
       const inactive = total - active
-      const deprecatedApiCalls = result.records.filter(f => f.ApiVersion < 50).length
 
       return {
         totalFlows: total,
         activeFlows: active,
         inactiveFlows: inactive,
-        circularDependencies: 0,
-        maxNestingDepth: 0,
-        flowsWithoutErrorHandling: 0,
-        deprecatedApiCalls,
+        circularDependencies: null,
+        maxNestingDepth: null,
+        flowsWithoutErrorHandling: null,
+        // An old ApiVersion on a flow version is not a deprecated API call.
+        deprecatedApiCalls: null,
       }
     } catch {
       return {
-        totalFlows: 0,
-        activeFlows: 0,
-        inactiveFlows: 0,
-        circularDependencies: 0,
-        maxNestingDepth: 0,
-        flowsWithoutErrorHandling: 0,
-        deprecatedApiCalls: 0,
+        totalFlows: null,
+        activeFlows: null,
+        inactiveFlows: null,
+        circularDependencies: null,
+        maxNestingDepth: null,
+        flowsWithoutErrorHandling: null,
+        deprecatedApiCalls: null,
       }
     }
   }
 
   private async fetchDataQuality(): Promise<RawHealthPayload['dataQuality']> {
-    try {
-      const result = await this.apiGet<{
-        records: Array<{ IsActive: boolean }>
-        totalSize: number
-      }>(
-        '/services/data/v59.0/query?q=SELECT+IsActive+FROM+DuplicateRule'
-      )
-
-      const activeRules = result.records.filter(r => r.IsActive).length
-      const duplicateCount = activeRules > 0 ? 0 : result.totalSize
-
-      return {
-        totalRecordsSampled: result.totalSize,
-        duplicateCount,
-        incompleteRequiredFields: 0,
-        staleRecords30d: 0,
-        staleRecords90d: 0,
-      }
-    } catch {
-      return {
-        totalRecordsSampled: 0,
-        duplicateCount: 0,
-        incompleteRequiredFields: 0,
-        staleRecords30d: 0,
-        staleRecords90d: 0,
-      }
+    // Duplicate rules are configuration, not records: counting them says
+    // nothing about duplicate records. Data quality is not measured until
+    // records are sampled.
+    return {
+      totalRecordsSampled: null,
+      duplicateCount: null,
+      incompleteRequiredFields: null,
+      staleRecords30d: null,
+      staleRecords90d: null,
     }
   }
 
@@ -237,47 +223,44 @@ export class SalesforceAdapter implements BaseAdapter {
 
       const licensed = usersResult.records.filter(u => u.IsActive).length
 
-      const profileResult = await this.apiGet<{ totalSize: number }>(
-        '/services/data/v59.0/query?q=SELECT+COUNT()+FROM+Profile'
-      ).catch(() => ({ totalSize: 0 }))
-
-      const permSetResult = await this.apiGet<{ totalSize: number }>(
-        '/services/data/v59.0/query?q=SELECT+COUNT()+FROM+PermissionSet'
-      ).catch(() => ({ totalSize: 0 }))
-
       return {
         security: {
           totalUsers: total,
           adminUsers,
           dormantAdmins,
-          usersWithoutMFA: 0,
-          rolesWithExcessivePrivilege: profileResult.totalSize + permSetResult.totalSize,
-          auditLogEnabled: false,
+          usersWithoutMFA: null,
+          // The count of all profiles and permission sets is not a count of
+          // over-privileged ones.
+          rolesWithExcessivePrivilege: null,
+          // Setup Audit Trail is always on in Salesforce; field history and
+          // event monitoring aren't checked yet.
+          auditLogEnabled: null,
         },
         adoption: {
           monthlyActiveUsers: activeUsers,
           totalLicensedUsers: licensed,
-          featureUtilisationPct: licensed > 0 ? Math.round((activeUsers / licensed) * 100) : 0,
-          automationsPerActiveUser: 0,
-          recentCustomisations30d: 0,
+          // Active ÷ licensed is already scored above; it is not feature use.
+          featureUtilisationPct: null,
+          automationsPerActiveUser: null,
+          recentCustomisations30d: null,
         },
       }
     } catch {
       return {
         security: {
-          totalUsers: 0,
-          adminUsers: 0,
-          dormantAdmins: 0,
-          usersWithoutMFA: 0,
-          rolesWithExcessivePrivilege: 0,
-          auditLogEnabled: false,
+          totalUsers: null,
+          adminUsers: null,
+          dormantAdmins: null,
+          usersWithoutMFA: null,
+          rolesWithExcessivePrivilege: null,
+          auditLogEnabled: null,
         },
         adoption: {
-          monthlyActiveUsers: 0,
-          totalLicensedUsers: 0,
-          featureUtilisationPct: 0,
-          automationsPerActiveUser: 0,
-          recentCustomisations30d: 0,
+          monthlyActiveUsers: null,
+          totalLicensedUsers: null,
+          featureUtilisationPct: null,
+          automationsPerActiveUser: null,
+          recentCustomisations30d: null,
         },
       }
     }

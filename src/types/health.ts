@@ -12,67 +12,80 @@ export interface OrgConnection {
 }
 
 // ─── Raw payload — adapters produce this ─────────────────────────────────────
+//
+// Every metric is `Measured<T>`: the real value, or `null` when the adapter did
+// not (or could not) measure it. Never send 0 or false as a stand-in for
+// "unknown" — the scoring engine reads 0 as healthy, which produces a score
+// the org has not earned. Unmeasured checks are skipped and reported as such.
+
+export type Measured<T> = T | null
 
 export interface RawHealthPayload {
   connection: OrgConnection
 
   schema: {
-    totalEntities: number
-    customEntities: number
-    unusedEntities: number
-    totalFields: number
-    unusedFields: number
-    deprecatedObjects: number
-    namingViolations: number
+    totalEntities: Measured<number>
+    customEntities: Measured<number>
+    unusedEntities: Measured<number>
+    totalFields: Measured<number>
+    unusedFields: Measured<number>
+    deprecatedObjects: Measured<number>
+    namingViolations: Measured<number>
   }
 
   automation: {
-    totalFlows: number
-    activeFlows: number
-    inactiveFlows: number
-    circularDependencies: number
-    maxNestingDepth: number
-    flowsWithoutErrorHandling: number
-    deprecatedApiCalls: number
+    totalFlows: Measured<number>
+    activeFlows: Measured<number>
+    inactiveFlows: Measured<number>
+    circularDependencies: Measured<number>
+    maxNestingDepth: Measured<number>
+    flowsWithoutErrorHandling: Measured<number>
+    deprecatedApiCalls: Measured<number>
   }
 
   dataQuality: {
-    totalRecordsSampled: number
-    duplicateCount: number
-    incompleteRequiredFields: number // percentage 0-100
-    staleRecords30d: number
-    staleRecords90d: number
+    totalRecordsSampled: Measured<number>
+    duplicateCount: Measured<number>
+    incompleteRequiredFields: Measured<number> // percentage 0-100
+    staleRecords30d: Measured<number>
+    staleRecords90d: Measured<number>
   }
 
   security: {
-    totalUsers: number
-    adminUsers: number
-    dormantAdmins: number          // admins with no login in 90d
-    usersWithoutMFA: number
-    rolesWithExcessivePrivilege: number
-    auditLogEnabled: boolean
+    totalUsers: Measured<number>
+    adminUsers: Measured<number>
+    dormantAdmins: Measured<number>          // admins with no login in 90d
+    usersWithoutMFA: Measured<number>
+    rolesWithExcessivePrivilege: Measured<number>
+    auditLogEnabled: Measured<boolean>
   }
 
   adoption: {
-    monthlyActiveUsers: number
-    totalLicensedUsers: number
-    featureUtilisationPct: number  // 0-100
-    automationsPerActiveUser: number
-    recentCustomisations30d: number
+    monthlyActiveUsers: Measured<number>
+    totalLicensedUsers: Measured<number>
+    featureUtilisationPct: Measured<number>  // 0-100
+    automationsPerActiveUser: Measured<number>
+    recentCustomisations30d: Measured<number>
   }
 }
 
 // ─── Scored payload — produced by the scoring engine ─────────────────────────
 
 export interface DimensionScore {
-  score: number       // 0–100
+  score: number | null  // 0–100, or null when none of the dimension's checks could be measured
   label: string
   issues: Issue[]
+  checksMeasured: number
+  checksTotal: number
+  notMeasured: string[] // names of checks skipped because their inputs were not measured
 }
 
 export interface ScoredHealthPayload {
   connection: OrgConnection
-  overallScore: number
+  overallScore: number | null  // weighted over measured dimensions only; null if nothing was measured
+  checksMeasured: number
+  checksTotal: number
+  raw: RawHealthPayload        // the measured values behind the score (null = not measured)
   trend?: number      // delta from last scan (positive = improving)
   dimensions: {
     schema: DimensionScore

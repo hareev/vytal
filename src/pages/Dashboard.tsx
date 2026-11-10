@@ -65,10 +65,10 @@ export function Dashboard() {
         {/* KPI row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
           {[
-            { label: 'Overall health', value: `${healthData.overallScore}`, unit: '/100', warn: healthData.overallScore < 70 },
+            { label: 'Overall health', value: `${healthData.overallScore ?? '—'}`, unit: healthData.overallScore === null ? '' : '/100', warn: healthData.overallScore !== null && healthData.overallScore < 70 },
             { label: 'Critical issues', value: `${criticalCount}`, warn: criticalCount > 0 },
             { label: 'Total issues', value: `${allIssues.length}`, warn: allIssues.length > 10 },
-            { label: 'Active flows', value: `${healthData.dimensions.automation.issues.length ? healthData.dimensions.automation.issues[0].affectedCount ?? '—' : '—'}`, warn: false },
+            { label: 'Checks measured', value: `${healthData.checksMeasured}`, unit: `/${healthData.checksTotal}`, warn: healthData.checksMeasured < healthData.checksTotal },
           ].map(kpi => (
             <div key={kpi.label} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px' }}>
               <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{kpi.label}</div>

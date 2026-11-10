@@ -165,7 +165,6 @@ export class D365Adapter implements BaseAdapter {
     const total = entities.value.length
     const customEntityList = entities.value.filter(e => e.IsCustomEntity)
     const custom = customEntityList.length
-    const unused = customEntityList.filter(e => !e.IsValidForAdvancedFind).length
 
     const { totalFields, unusedFields } = await this.fetchFieldCounts(
       customEntityList.map(e => e.LogicalName).slice(0, 20)
@@ -174,15 +173,18 @@ export class D365Adapter implements BaseAdapter {
     return {
       totalEntities: total,
       customEntities: custom,
-      unusedEntities: unused,
+      // IsValidForAdvancedFind says whether a table shows in Advanced Find, not
+      // whether it is used, so "unused" is not measured until record counts or
+      // form/flow references are checked.
+      unusedEntities: null,
       totalFields,
       unusedFields,
-      deprecatedObjects: 0,
-      namingViolations: 0,
+      deprecatedObjects: null,
+      namingViolations: null,
     }
   }
 
-  private async fetchFieldCounts(entityNames: string[]): Promise<{ totalFields: number; unusedFields: number }> {
+  private async fetchFieldCounts(entityNames: string[]): Promise<{ totalFields: number | null; unusedFields: number | null }> {
     if (entityNames.length === 0) return { totalFields: 0, unusedFields: 0 }
 
     type CountResponse = { '@odata.count': number; value: unknown[] }
@@ -203,14 +205,18 @@ export class D365Adapter implements BaseAdapter {
             unused: unusedRes['@odata.count'] ?? 0,
           }
         } catch {
-          return { total: 0, unused: 0 }
+          return null
         }
       })
     )
 
+    // If any table could not be read, the totals are incomplete: report them as not measured.
+    if (results.some(r => r === null)) return { totalFields: null, unusedFields: null }
+    const counted = results as Array<{ total: number; unused: number }>
+
     return {
-      totalFields: results.reduce((sum, r) => sum + r.total, 0),
-      unusedFields: results.reduce((sum, r) => sum + r.unused, 0),
+      totalFields: counted.reduce((sum, r) => sum + r.total, 0),
+      unusedFields: counted.reduce((sum, r) => sum + r.unused, 0),
     }
   }
 
@@ -235,10 +241,10 @@ export class D365Adapter implements BaseAdapter {
       totalFlows: total,
       activeFlows: active,
       inactiveFlows: inactive,
-      circularDependencies: 0,         // deep analysis — phase 2
-      maxNestingDepth: 0,
-      flowsWithoutErrorHandling: 0,
-      deprecatedApiCalls: 0,
+      circularDependencies: null,      // deep analysis — phase 2
+      maxNestingDepth: null,
+      flowsWithoutErrorHandling: null,
+      deprecatedApiCalls: null,
     }
   }
 
@@ -257,7 +263,7 @@ export class D365Adapter implements BaseAdapter {
         }>
       }>('/api/data/v9.2/systemusers?$select=isdisabled,accessmode,islicensed&$filter=accessmode ne 4'),
       this.fetchAdminStats(),
-      this.fetchMFACount().catch(() => 0),
+      this.fetchMFACount().catch(() => null),
     ])
 
     const total = users.value.length
@@ -269,54 +275,50 @@ export class D365Adapter implements BaseAdapter {
         adminUsers: adminStats.adminCount,
         dormantAdmins: adminStats.dormantAdmins,
         usersWithoutMFA: mfaCount,
-        rolesWithExcessivePrivilege: 0,
-        auditLogEnabled: false,
+        rolesWithExcessivePrivilege: null,
+        auditLogEnabled: null, // filled from fetchAuditLogStatus()
       },
       adoption: {
-        monthlyActiveUsers: licensed,
+        // Monthly active users needs sign-in or audit data; licensed is not active.
+        monthlyActiveUsers: null,
         totalLicensedUsers: licensed,
-        featureUtilisationPct: 0,
-        automationsPerActiveUser: 0,
-        recentCustomisations30d: 0,
+        featureUtilisationPct: null,
+        automationsPerActiveUser: null,
+        recentCustomisations30d: null,
       },
     }
   }
 
-  private async fetchAdminStats(): Promise<{ adminCount: number; dormantAdmins: number }> {
+  private async fetchAdminStats(): Promise<{ adminCount: number | null; dormantAdmins: number | null }> {
+    // Dormancy needs each admin's last sign-in. Dataverse's systemuser table
+    // does not expose one; it has to come from Microsoft Graph signInActivity
+    // (Entra ID P1/P2), so dormant admins are not measured here.
     try {
       const roleRes = await this.apiGet<{ value: Array<{ roleid: string }> }>(
         `/api/data/v9.2/roles?$select=roleid&$filter=name eq 'System Administrator'&$top=1`
       )
-      if (roleRes.value.length === 0) return { adminCount: 0, dormantAdmins: 0 }
+      if (roleRes.value.length === 0) return { adminCount: null, dormantAdmins: null }
       const roleId = roleRes.value[0].roleid
 
-      const adminUsers = await this.apiGet<{
-        value: Array<{ systemuserid: string; lastloggedin: string | null }>
-      }>(
-        `/api/data/v9.2/systemusers?$select=systemuserid,lastloggedin&$filter=systemuserroles_association/any(r: r/roleid eq ${roleId}) and accessmode ne 4`
+      const adminUsers = await this.apiGet<{ value: Array<{ systemuserid: string }> }>(
+        `/api/data/v9.2/systemusers?$select=systemuserid&$filter=systemuserroles_association/any(r: r/roleid eq ${roleId}) and accessmode ne 4`
       )
 
-      const now = Date.now()
-      const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000
-      const dormantAdmins = adminUsers.value.filter(u => {
-        const lastLogin = u.lastloggedin ? new Date(u.lastloggedin).getTime() : 0
-        return now - lastLogin > ninetyDaysMs
-      }).length
-
-      return { adminCount: adminUsers.value.length, dormantAdmins }
+      return { adminCount: adminUsers.value.length, dormantAdmins: null }
     } catch {
-      return { adminCount: 0, dormantAdmins: 0 }
+      return { adminCount: null, dormantAdmins: null }
     }
   }
 
-  private async fetchAuditLogStatus(): Promise<boolean> {
+  private async fetchAuditLogStatus(): Promise<boolean | null> {
     try {
       const res = await this.apiGet<{ value: Array<{ isauditenabled: boolean }> }>(
         '/api/data/v9.2/organizations?$select=isauditenabled'
       )
-      return res.value[0]?.isauditenabled ?? false
+      const enabled = res.value[0]?.isauditenabled
+      return typeof enabled === 'boolean' ? enabled : null
     } catch {
-      return false
+      return null
     }
   }
 
@@ -363,13 +365,14 @@ export class D365Adapter implements BaseAdapter {
     )
     const activeRules = rules.value.filter(r => r.statecode === 1).length
 
+    // Record sampling is not implemented yet, so every data quality metric is
+    // not measured (rather than a perfect 0).
     return {
-      totalRecordsSampled: 0,
-      duplicateCount: 0,
-      incompleteRequiredFields: 0,
-      staleRecords30d: 0,
-      staleRecords90d: 0,
-      // activeRules is surfaced as an issue in the scoring engine
+      totalRecordsSampled: null,
+      duplicateCount: null,
+      incompleteRequiredFields: null,
+      staleRecords30d: null,
+      staleRecords90d: null,
       _activeDuplicateRules: activeRules,
     } as RawHealthPayload['dataQuality'] & { _activeDuplicateRules: number }
   }

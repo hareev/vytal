@@ -116,10 +116,10 @@ export class HubSpotAdapter implements BaseAdapter {
     return {
       totalEntities: objectTypes.length + customEntities,
       customEntities,
-      unusedEntities: 0,
+      unusedEntities: null,
       totalFields,
       unusedFields,
-      deprecatedObjects: 0,
+      deprecatedObjects: null,
       namingViolations,
     }
   }
@@ -139,52 +139,34 @@ export class HubSpotAdapter implements BaseAdapter {
         totalFlows: total,
         activeFlows: active,
         inactiveFlows: inactive,
-        circularDependencies: 0,
-        maxNestingDepth: 0,
-        flowsWithoutErrorHandling: 0,
-        deprecatedApiCalls: 0,
+        circularDependencies: null,
+        maxNestingDepth: null,
+        flowsWithoutErrorHandling: null,
+        deprecatedApiCalls: null,
       }
     } catch {
       return {
-        totalFlows: 0,
-        activeFlows: 0,
-        inactiveFlows: 0,
-        circularDependencies: 0,
-        maxNestingDepth: 0,
-        flowsWithoutErrorHandling: 0,
-        deprecatedApiCalls: 0,
+        totalFlows: null,
+        activeFlows: null,
+        inactiveFlows: null,
+        circularDependencies: null,
+        maxNestingDepth: null,
+        flowsWithoutErrorHandling: null,
+        deprecatedApiCalls: null,
       }
     }
   }
 
   private async fetchDataQuality(): Promise<RawHealthPayload['dataQuality']> {
-    try {
-      const result = await this.apiGet<{
-        total: number
-        results: Array<Record<string, unknown>>
-      }>('/crm/v3/objects/contacts?limit=1&properties=email,firstname,lastname')
-
-      const total = result.total ?? 0
-      const incomplete = result.results.filter(c => {
-        const props = c['properties'] as Record<string, string | null> | undefined
-        return !props?.['email'] || !props?.['firstname']
-      }).length
-
-      return {
-        totalRecordsSampled: total,
-        duplicateCount: 0,
-        incompleteRequiredFields: total > 0 ? Math.round((incomplete / result.results.length) * 100) : 0,
-        staleRecords30d: 0,
-        staleRecords90d: 0,
-      }
-    } catch {
-      return {
-        totalRecordsSampled: 0,
-        duplicateCount: 0,
-        incompleteRequiredFields: 0,
-        staleRecords30d: 0,
-        staleRecords90d: 0,
-      }
+    // The previous check read a single contact (limit=1), so "incomplete
+    // fields" could only ever be 0% or 100%, and duplicates were never looked
+    // at. Data quality is not measured until a real sample is read.
+    return {
+      totalRecordsSampled: null,
+      duplicateCount: null,
+      incompleteRequiredFields: null,
+      staleRecords30d: null,
+      staleRecords90d: null,
     }
   }
 
@@ -229,34 +211,35 @@ export class HubSpotAdapter implements BaseAdapter {
           totalUsers: total,
           adminUsers: adminCount,
           dormantAdmins,
-          usersWithoutMFA: 0,
-          rolesWithExcessivePrivilege: 0,
-          auditLogEnabled: false,
+          usersWithoutMFA: null,
+          rolesWithExcessivePrivilege: null,
+          auditLogEnabled: null,
         },
         adoption: {
           monthlyActiveUsers: activeUsers,
           totalLicensedUsers: total,
-          featureUtilisationPct: total > 0 ? Math.round((activeUsers / total) * 100) : 0,
-          automationsPerActiveUser: 0,
-          recentCustomisations30d: 0,
+          // Active ÷ licensed is already scored above; it is not feature use.
+          featureUtilisationPct: null,
+          automationsPerActiveUser: null,
+          recentCustomisations30d: null,
         },
       }
     } catch {
       return {
         security: {
-          totalUsers: 0,
-          adminUsers: 0,
-          dormantAdmins: 0,
-          usersWithoutMFA: 0,
-          rolesWithExcessivePrivilege: 0,
-          auditLogEnabled: false,
+          totalUsers: null,
+          adminUsers: null,
+          dormantAdmins: null,
+          usersWithoutMFA: null,
+          rolesWithExcessivePrivilege: null,
+          auditLogEnabled: null,
         },
         adoption: {
-          monthlyActiveUsers: 0,
-          totalLicensedUsers: 0,
-          featureUtilisationPct: 0,
-          automationsPerActiveUser: 0,
-          recentCustomisations30d: 0,
+          monthlyActiveUsers: null,
+          totalLicensedUsers: null,
+          featureUtilisationPct: null,
+          automationsPerActiveUser: null,
+          recentCustomisations30d: null,
         },
       }
     }
