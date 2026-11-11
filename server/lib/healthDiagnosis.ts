@@ -10,7 +10,7 @@ import { z } from 'zod';
 const dimensionKey = z.enum(['schema', 'automation', 'dataQuality', 'security', 'adoption']);
 
 const issueSchema = z.object({
-  severity: z.enum(['critical', 'high', 'medium', 'low']),
+  severity: z.enum(['critical', 'high', 'medium', 'low', 'info']),
   title: z.string().max(300),
   description: z.string().max(1000),
 });
