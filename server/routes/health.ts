@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
+import { generateHealthDiagnosis, healthDiagnosisRequestSchema } from '../lib/healthDiagnosis.js';
 
 const router = new Hono();
 
@@ -75,7 +76,7 @@ router.post('/d365/scan', authMiddleware, zValidator('json', d365ScanSchema), as
   // 2. Fetch org identity + audit flag in one call
   let orgName = '';
   let orgId = '';
-  let auditLogEnabled = false;
+  let auditLogEnabled: boolean | null = null;
   try {
     const whoAmI = await apiGet<{ OrganizationId: string }>('/api/data/v9.2/WhoAmI()');
     orgId = whoAmI.OrganizationId;
@@ -84,49 +85,47 @@ router.post('/d365/scan', authMiddleware, zValidator('json', d365ScanSchema), as
       `/api/data/v9.2/organizations(${orgId})?$select=name,isauditenabled`,
     );
     orgName = orgRecord.name || '';
-    auditLogEnabled = orgRecord.isauditenabled ?? false;
+    auditLogEnabled = typeof orgRecord.isauditenabled === 'boolean' ? orgRecord.isauditenabled : null;
   } catch (e) {
     return c.json({ error: `Could not reach Dataverse: ${(e as Error).message}` }, 502);
   }
 
-  // 3. Fetch all health dimensions in parallel
-  const [entities, flows, users, _duplicateRules, adminStats] = await Promise.all([
-    apiGet<{ value: Array<{ IsCustomEntity: boolean; LogicalName: string; IsValidForAdvancedFind: boolean }> }>(
-      '/api/data/v9.2/EntityDefinitions?$select=IsCustomEntity,LogicalName,IsActivity,IsValidForAdvancedFind',
-    ).catch(() => ({ value: [] })),
+  // 3. Fetch all health dimensions in parallel.
+  // A failed query yields null, not an empty list, so the metrics it feeds are
+  // reported as "not measured" instead of scoring as a healthy zero.
+  const [entities, flows, users, adminStats] = await Promise.all([
+    apiGet<{ value: Array<{ IsCustomEntity: boolean; LogicalName: string }> }>(
+      '/api/data/v9.2/EntityDefinitions?$select=IsCustomEntity,LogicalName',
+    ).catch(() => null),
 
+    // Cloud flows (5) and desktop flows (6). Classic workflows, business rules,
+    // actions and business process flows (0–4) are not counted yet.
     apiGet<{ value: Array<{ statecode: number; category: number }> }>(
       '/api/data/v9.2/workflows?$select=statecode,category,name&$filter=category eq 5 or category eq 6',
-    ).catch(() => ({ value: [] })),
+    ).catch(() => null),
 
     apiGet<{ value: Array<{ isdisabled: boolean; accessmode: number; islicensed: boolean }> }>(
       '/api/data/v9.2/systemusers?$select=isdisabled,accessmode,islicensed&$filter=accessmode ne 4',
-    ).catch(() => ({ value: [] })),
+    ).catch(() => null),
 
-    apiGet<{ value: Array<{ statecode: number }> }>(
-      '/api/data/v9.2/duplicaterules?$select=statecode',
-    ).catch(() => ({ value: [] })),
-
-    // Admin role members
+    // System Administrator role members. Dormancy needs each admin's last
+    // sign-in, which Dataverse does not expose on systemuser; it has to come
+    // from Microsoft Graph signInActivity (Entra ID P1/P2), so it is not
+    // measured here.
     apiGet<{ value: Array<{ roleid: string }> }>(
       `/api/data/v9.2/roles?$select=roleid&$filter=name eq 'System Administrator'&$top=1`,
     ).then(async (roleRes) => {
-      if (roleRes.value.length === 0) return { adminCount: 0, dormantAdmins: 0 };
+      if (roleRes.value.length === 0) return { adminCount: null };
       const roleId = roleRes.value[0].roleid;
-      const admins = await apiGet<{ value: Array<{ systemuserid: string; lastloggedin: string | null }> }>(
-        `/api/data/v9.2/systemusers?$select=systemuserid,lastloggedin&$filter=systemuserroles_association/any(r: r/roleid eq ${roleId}) and accessmode ne 4`,
+      const admins = await apiGet<{ value: Array<{ systemuserid: string }> }>(
+        `/api/data/v9.2/systemusers?$select=systemuserid&$filter=systemuserroles_association/any(r: r/roleid eq ${roleId}) and accessmode ne 4`,
       );
-      const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-      const dormant = admins.value.filter(u => {
-        const last = u.lastloggedin ? new Date(u.lastloggedin).getTime() : 0;
-        return Date.now() - last > ninetyDaysMs;
-      }).length;
-      return { adminCount: admins.value.length, dormantAdmins: dormant };
-    }).catch(() => ({ adminCount: 0, dormantAdmins: 0 })),
+      return { adminCount: admins.value.length as number | null };
+    }).catch(() => ({ adminCount: null })),
   ]);
 
-  const customEntities = entities.value.filter(e => e.IsCustomEntity);
-  const licensed = users.value.filter(u => u.islicensed && !u.isdisabled).length;
+  const customEntities = entities ? entities.value.filter(e => e.IsCustomEntity) : null;
+  const licensed = users ? users.value.filter(u => u.islicensed && !u.isdisabled).length : null;
 
   const connection = {
     id: orgId,
@@ -136,51 +135,67 @@ router.post('/d365/scan', authMiddleware, zValidator('json', d365ScanSchema), as
     connectedAt: new Date().toISOString(),
   };
 
+  // null = not measured. Only fill a metric this route actually queried.
   const payload = {
     connection,
     schema: {
-      totalEntities: entities.value.length,
-      customEntities: customEntities.length,
-      unusedEntities: customEntities.filter(e => !e.IsValidForAdvancedFind).length,
-      totalFields: 0,
-      unusedFields: 0,
-      deprecatedObjects: 0,
-      namingViolations: 0,
+      totalEntities: entities ? entities.value.length : null,
+      customEntities: customEntities ? customEntities.length : null,
+      unusedEntities: null,
+      totalFields: null,
+      unusedFields: null,
+      deprecatedObjects: null,
+      namingViolations: null,
     },
     automation: {
-      totalFlows: flows.value.length,
-      activeFlows: flows.value.filter(f => f.statecode === 1).length,
-      inactiveFlows: flows.value.filter(f => f.statecode !== 1).length,
-      circularDependencies: 0,
-      maxNestingDepth: 0,
-      flowsWithoutErrorHandling: 0,
-      deprecatedApiCalls: 0,
+      totalFlows: flows ? flows.value.length : null,
+      activeFlows: flows ? flows.value.filter(f => f.statecode === 1).length : null,
+      inactiveFlows: flows ? flows.value.filter(f => f.statecode !== 1).length : null,
+      circularDependencies: null,
+      maxNestingDepth: null,
+      flowsWithoutErrorHandling: null,
+      deprecatedApiCalls: null,
     },
     dataQuality: {
-      totalRecordsSampled: 0,
-      duplicateCount: 0,
-      incompleteRequiredFields: 0,
-      staleRecords30d: 0,
-      staleRecords90d: 0,
+      totalRecordsSampled: null,
+      duplicateCount: null,
+      incompleteRequiredFields: null,
+      staleRecords30d: null,
+      staleRecords90d: null,
     },
     security: {
-      totalUsers: users.value.length,
+      totalUsers: users ? users.value.length : null,
       adminUsers: adminStats.adminCount,
-      dormantAdmins: adminStats.dormantAdmins,
-      usersWithoutMFA: 0,
-      rolesWithExcessivePrivilege: 0,
+      dormantAdmins: null,
+      usersWithoutMFA: null,
+      rolesWithExcessivePrivilege: null,
       auditLogEnabled,
     },
     adoption: {
-      monthlyActiveUsers: licensed,
+      monthlyActiveUsers: null,
       totalLicensedUsers: licensed,
-      featureUtilisationPct: 0,
-      automationsPerActiveUser: 0,
-      recentCustomisations30d: 0,
+      featureUtilisationPct: null,
+      automationsPerActiveUser: null,
+      recentCustomisations30d: null,
     },
   };
 
   return c.json({ connection, payload });
+});
+
+// ─── POST /api/health/diagnosis ──────────────────────────────────────────────
+// AI triage of a scored health report. Runs server-side so the Anthropic key
+// stays out of the browser bundle.
+
+router.post('/diagnosis', authMiddleware, zValidator('json', healthDiagnosisRequestSchema), async (c) => {
+  try {
+    const diagnosis = await generateHealthDiagnosis(c.req.valid('json'));
+    return c.json(diagnosis);
+  } catch (e) {
+    const message = (e as Error).message;
+    const status = message.includes('not configured') ? 503 : 502;
+    return c.json({ error: message }, status);
+  }
 });
 
 export default router;

@@ -8,13 +8,15 @@ const DIMENSION_ORDER: Array<keyof ScoredHealthPayload['dimensions']> = [
   'schema', 'automation', 'dataQuality', 'security', 'adoption'
 ]
 
-function scoreColor(score: number): string {
+function scoreColor(score: number | null): string {
+  if (score === null) return 'var(--text-tertiary)'
   if (score >= 80) return 'var(--success)'
   if (score >= 60) return 'var(--warning)'
   return 'var(--danger)'
 }
 
-function riskLabel(score: number): { label: string; color: string } {
+function riskLabel(score: number | null): { label: string; color: string } {
+  if (score === null) return { label: 'Not measured', color: 'var(--text-tertiary)' }
   if (score >= 80) return { label: 'Healthy', color: 'var(--success)' }
   if (score >= 65) return { label: 'Watch', color: 'var(--warning)' }
   if (score >= 50) return { label: 'Needs attention', color: 'var(--warning)' }
@@ -22,13 +24,13 @@ function riskLabel(score: number): { label: string; color: string } {
 }
 
 export function ScoreOverview({ scored }: Props) {
-  const { overallScore, dimensions } = scored
+  const { overallScore, dimensions, checksMeasured, checksTotal } = scored
   const risk = riskLabel(overallScore)
 
   // SVG ring params
   const r = 36
   const circ = 2 * Math.PI * r
-  const filled = (overallScore / 100) * circ
+  const filled = ((overallScore ?? 0) / 100) * circ
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '20px' }}>
@@ -54,8 +56,8 @@ export function ScoreOverview({ scored }: Props) {
             />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: '20px', fontWeight: 600, lineHeight: 1 }}>{overallScore}</span>
-            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>/100</span>
+            <span style={{ fontSize: '20px', fontWeight: 600, lineHeight: 1 }}>{overallScore ?? '—'}</span>
+            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{overallScore === null ? 'not measured' : '/100'}</span>
           </div>
         </div>
 
@@ -63,17 +65,26 @@ export function ScoreOverview({ scored }: Props) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {DIMENSION_ORDER.map(key => {
             const dim = dimensions[key]
+            const hint = dim.notMeasured.length
+              ? `${dim.checksMeasured} of ${dim.checksTotal} checks measured. Not measured: ${dim.notMeasured.join(', ')}`
+              : `All ${dim.checksTotal} checks measured`
             return (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+              <div key={key} title={hint} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
                 <span style={{ width: '110px', color: 'var(--text-secondary)', flexShrink: 0 }}>{dim.label}</span>
                 <div style={{ flex: 1, height: '5px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${dim.score}%`, background: scoreColor(dim.score), borderRadius: '3px', transition: 'width 0.5s ease' }} />
+                  <div style={{ height: '100%', width: `${dim.score ?? 0}%`, background: scoreColor(dim.score), borderRadius: '3px', transition: 'width 0.5s ease' }} />
                 </div>
-                <span style={{ width: '28px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 500 }}>{dim.score}</span>
+                <span style={{ width: '28px', textAlign: 'right', color: dim.score === null ? 'var(--text-tertiary)' : 'var(--text-secondary)', fontWeight: 500 }}>{dim.score ?? '—'}</span>
+                <span style={{ width: '32px', textAlign: 'right', color: 'var(--text-tertiary)', fontSize: '11px' }}>{dim.checksMeasured}/{dim.checksTotal}</span>
               </div>
             )
           })}
         </div>
+      </div>
+
+      <div style={{ marginTop: '14px', fontSize: '11px', color: 'var(--text-tertiary)' }}>
+        {checksMeasured} of {checksTotal} checks measured.
+        {checksMeasured < checksTotal && ' Checks Vytal could not measure are left out of the score, not counted as healthy.'}
       </div>
     </div>
   )

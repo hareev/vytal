@@ -46,7 +46,7 @@ Open `http://localhost:5173`. You'll land on a pre-loaded workspace (Acme Corp) 
 # 2. Configure .env
 cp .env.example .env
 # Fill in:
-#   VITE_ANTHROPIC_API_KEY=sk-ant-...
+#   ANTHROPIC_API_KEY=sk-ant-...   (server only, for the AI diagnosis)
 #   VITE_USE_MOCK=false
 #   VITE_API_URL=http://localhost:3001
 #   DATABASE_URL=postgresql://...
@@ -67,10 +67,8 @@ npm run dev:all
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `VITE_ANTHROPIC_API_KEY` | For AI diagnosis | — | Anthropic API key |
 | `VITE_USE_MOCK` | No | `true` | Run without a backend using in-memory data |
 | `VITE_API_URL` | No | `http://localhost:3001` | API server URL |
-| `VITE_CLAUDE_MODEL` | No | `claude-sonnet-4-20250514` | Override the Claude model |
 
 ### API server
 
@@ -78,6 +76,8 @@ npm run dev:all
 |---|---|---|
 | `DATABASE_URL` | Yes (real mode) | Neon PostgreSQL connection string |
 | `JWT_SECRET` | Yes (real mode) | Random string for signing JWTs (`openssl rand -hex 32`) |
+| `ANTHROPIC_API_KEY` | For AI diagnosis | Anthropic API key. Server only: the health diagnosis runs at `POST /api/health/diagnosis`, so the key never reaches the browser |
+| `ANTHROPIC_MODEL` | No | Override the Claude model (default: `claude-sonnet-4-6`) |
 | `PORT` | No | API server port (default: `3001`) |
 | `CORS_ORIGIN` | No | Allowed CORS origin (default: `*`) |
 

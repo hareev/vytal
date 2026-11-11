@@ -5,192 +5,264 @@ import type { RawHealthPayload, ScoredHealthPayload, DimensionScore, Issue, Issu
 // Each dimension is scored 0–100 using a weighted rule set.
 // Rules fire against the raw payload and produce issues.
 // The dimension score is 100 minus the sum of rule penalties, floored at 0.
+//
+// A rule only runs when every input it needs was measured (not null). A rule
+// whose inputs are missing is listed in `notMeasured` and neither costs nor
+// earns points. A dimension with no measured checks scores null, and the
+// overall score is weighted over measured dimensions only.
+
+const WEIGHTS = {
+  schema: 0.25,
+  automation: 0.25,
+  dataQuality: 0.20,
+  security: 0.20,
+  adoption: 0.10,
+} as const
 
 export function scoreHealthPayload(raw: RawHealthPayload): ScoredHealthPayload {
-  const schema = scoreSchema(raw)
-  const automation = scoreAutomation(raw)
-  const dataQuality = scoreDataQuality(raw)
-  const security = scoreSecurity(raw)
-  const adoption = scoreAdoption(raw)
+  const dimensions = {
+    schema: scoreSchema(raw),
+    automation: scoreAutomation(raw),
+    dataQuality: scoreDataQuality(raw),
+    security: scoreSecurity(raw),
+    adoption: scoreAdoption(raw),
+  }
 
-  const overallScore = Math.round(
-    (schema.score * 0.25) +
-    (automation.score * 0.25) +
-    (dataQuality.score * 0.20) +
-    (security.score * 0.20) +
-    (adoption.score * 0.10)
-  )
+  let weighted = 0
+  let weightUsed = 0
+  let checksMeasured = 0
+  let checksTotal = 0
+  for (const key of Object.keys(WEIGHTS) as Array<keyof typeof WEIGHTS>) {
+    const dim = dimensions[key]
+    checksMeasured += dim.checksMeasured
+    checksTotal += dim.checksTotal
+    if (dim.score !== null) {
+      weighted += dim.score * WEIGHTS[key]
+      weightUsed += WEIGHTS[key]
+    }
+  }
 
   return {
     connection: raw.connection,
-    overallScore,
-    dimensions: { schema, automation, dataQuality, security, adoption },
+    overallScore: weightUsed > 0 ? Math.round(weighted / weightUsed) : null,
+    checksMeasured,
+    checksTotal,
+    raw,
+    dimensions,
     scannedAt: new Date(),
+  }
+}
+
+// ─── Dimension builder ────────────────────────────────────────────────────────
+
+type NonNullTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: NonNullable<T[K]> }
+
+class Dimension {
+  readonly issues: Issue[] = []
+  private penalty = 0
+  private measured = 0
+  private total = 0
+  private readonly skipped: string[] = []
+
+  constructor(private readonly label: string) {}
+
+  /**
+   * Run a rule only if all of its inputs were measured. `run` receives the
+   * inputs with null removed and returns the penalty it applies (0 if none).
+   */
+  check<T extends readonly unknown[]>(name: string, inputs: T, run: (...values: NonNullTuple<T>) => number): void {
+    this.total++
+    if (inputs.some(v => v === null || v === undefined)) {
+      this.skipped.push(name)
+      return
+    }
+    this.measured++
+    this.penalty += run(...(inputs as unknown as NonNullTuple<T>))
+  }
+
+  add(i: Issue): void {
+    this.issues.push(i)
+  }
+
+  result(): DimensionScore {
+    return {
+      score: this.measured === 0 ? null : clamp(100 - this.penalty),
+      label: this.label,
+      issues: this.issues,
+      checksMeasured: this.measured,
+      checksTotal: this.total,
+      notMeasured: this.skipped,
+    }
   }
 }
 
 // ─── Schema hygiene ───────────────────────────────────────────────────────────
 
 function scoreSchema(raw: RawHealthPayload): DimensionScore {
-  const issues: Issue[] = []
-  let penalty = 0
+  const d = new Dimension('Schema hygiene')
+  const s = raw.schema
 
-  const customRatio = raw.schema.customEntities / Math.max(raw.schema.totalEntities, 1)
-  if (customRatio > 0.5) {
-    const p = 15
-    penalty += p
-    issues.push(issue('critical', 'schema', 'High custom entity ratio',
-      `${Math.round(customRatio * 100)}% of entities are custom (${raw.schema.customEntities}/${raw.schema.totalEntities}). High customisation debt increases upgrade risk.`,
-      raw.schema.customEntities, 'Review entities against current business requirements. Archive or deprecate unused ones.'))
-  }
+  d.check('Custom entity ratio', [s.customEntities, s.totalEntities] as const, (custom, total) => {
+    const customRatio = custom / Math.max(total, 1)
+    if (customRatio <= 0.5) return 0
+    d.add(issue('critical', 'schema', 'High custom entity ratio',
+      `${Math.round(customRatio * 100)}% of entities are custom (${custom}/${total}). High customisation debt increases upgrade risk.`,
+      custom, 'Review entities against current business requirements. Archive or deprecate unused ones.'))
+    return 15
+  })
 
-  if (raw.schema.unusedEntities > 0) {
-    const p = Math.min(raw.schema.unusedEntities * 2, 20)
-    penalty += p
-    issues.push(issue('high', 'schema', `${raw.schema.unusedEntities} unused custom entities`,
+  d.check('Unused custom entities', [s.unusedEntities] as const, (unused) => {
+    if (unused <= 0) return 0
+    d.add(issue('high', 'schema', `${unused} unused custom entities`,
       'Unused entities bloat the schema, slow solution imports, and confuse developers.',
-      raw.schema.unusedEntities, 'Run a solution usage analysis and remove entities with no records, flows, or form references.'))
-  }
+      unused, 'Run a solution usage analysis and remove entities with no records, flows, or form references.'))
+    return Math.min(unused * 2, 20)
+  })
 
-  if (raw.schema.deprecatedObjects > 0) {
-    penalty += 10
-    issues.push(issue('critical', 'schema', `${raw.schema.deprecatedObjects} deprecated objects in use`,
+  d.check('Deprecated objects', [s.deprecatedObjects] as const, (deprecated) => {
+    if (deprecated <= 0) return 0
+    d.add(issue('critical', 'schema', `${deprecated} deprecated objects in use`,
       'Using deprecated entities or fields will cause failures when Microsoft removes them.',
-      raw.schema.deprecatedObjects, 'Migrate to supported alternatives before the next deprecation wave.'))
-  }
+      deprecated, 'Migrate to supported alternatives before the next deprecation wave.'))
+    return 10
+  })
 
-  if (raw.schema.namingViolations > 5) {
-    const p = Math.min(raw.schema.namingViolations, 10)
-    penalty += p
-    issues.push(issue('medium', 'schema', `${raw.schema.namingViolations} naming convention violations`,
+  d.check('Naming conventions', [s.namingViolations] as const, (violations) => {
+    if (violations <= 5) return 0
+    d.add(issue('medium', 'schema', `${violations} naming convention violations`,
       'Inconsistent naming makes the schema harder to maintain and onboard new developers.'))
-  }
+    return Math.min(violations, 10)
+  })
 
-  return { score: clamp(100 - penalty), label: 'Schema hygiene', issues }
+  return d.result()
 }
 
 // ─── Automation complexity ────────────────────────────────────────────────────
 
 function scoreAutomation(raw: RawHealthPayload): DimensionScore {
-  const issues: Issue[] = []
-  let penalty = 0
+  const d = new Dimension('Automation complexity')
+  const a = raw.automation
 
-  if (raw.automation.circularDependencies > 0) {
-    penalty += 25
-    issues.push(issue('critical', 'automation', `${raw.automation.circularDependencies} circular flow dependencies`,
+  d.check('Circular dependencies', [a.circularDependencies] as const, (circular) => {
+    if (circular <= 0) return 0
+    d.add(issue('critical', 'automation', `${circular} circular flow dependencies`,
       'Circular triggers create infinite loops that can crash your org under load.',
-      raw.automation.circularDependencies, 'Map the dependency graph and break cycles by adding condition guards or restructuring trigger logic.'))
-  }
+      circular, 'Map the dependency graph and break cycles by adding condition guards or restructuring trigger logic.'))
+    return 25
+  })
 
-  const inactiveRatio = raw.automation.inactiveFlows / Math.max(raw.automation.totalFlows, 1)
-  if (inactiveRatio > 0.15) {
-    const p = Math.round(inactiveRatio * 20)
-    penalty += p
-    issues.push(issue('medium', 'automation', `${raw.automation.inactiveFlows} inactive flows`,
+  d.check('Inactive flows', [a.inactiveFlows, a.totalFlows] as const, (inactive, total) => {
+    const inactiveRatio = inactive / Math.max(total, 1)
+    if (inactiveRatio <= 0.15) return 0
+    d.add(issue('medium', 'automation', `${inactive} inactive flows`,
       `${Math.round(inactiveRatio * 100)}% of flows are inactive — cluttering the environment and confusing teams.`,
-      raw.automation.inactiveFlows, 'Delete or archive flows that are no longer needed.'))
-  }
+      inactive, 'Delete or archive flows that are no longer needed.'))
+    return Math.round(inactiveRatio * 20)
+  })
 
-  if (raw.automation.flowsWithoutErrorHandling > 0) {
-    const p = Math.min(raw.automation.flowsWithoutErrorHandling * 3, 20)
-    penalty += p
-    issues.push(issue('high', 'automation', `${raw.automation.flowsWithoutErrorHandling} flows without error handling`,
+  d.check('Error handling', [a.flowsWithoutErrorHandling] as const, (missing) => {
+    if (missing <= 0) return 0
+    d.add(issue('high', 'automation', `${missing} flows without error handling`,
       'Silent failures in production automations are the #1 cause of data integrity issues.',
-      raw.automation.flowsWithoutErrorHandling, 'Add a "Run After" error branch or a dedicated error notification flow.'))
-  }
+      missing, 'Add a "Run After" error branch or a dedicated error notification flow.'))
+    return Math.min(missing * 3, 20)
+  })
 
-  if (raw.automation.deprecatedApiCalls > 0) {
-    penalty += 15
-    issues.push(issue('critical', 'automation', `${raw.automation.deprecatedApiCalls} deprecated API calls in flows/plugins`,
+  d.check('Deprecated API calls', [a.deprecatedApiCalls] as const, (deprecated) => {
+    if (deprecated <= 0) return 0
+    d.add(issue('critical', 'automation', `${deprecated} deprecated API calls in flows/plugins`,
       'These will fail when Microsoft removes the deprecated endpoint — without warning in production.',
-      raw.automation.deprecatedApiCalls, 'Update to the current Web API v9.2 endpoints.'))
-  }
+      deprecated, 'Update to the current Web API v9.2 endpoints.'))
+    return 15
+  })
 
-  return { score: clamp(100 - penalty), label: 'Automation complexity', issues }
+  return d.result()
 }
 
 // ─── Data quality ─────────────────────────────────────────────────────────────
 
 function scoreDataQuality(raw: RawHealthPayload): DimensionScore {
-  const issues: Issue[] = []
-  let penalty = 0
+  const d = new Dimension('Data quality')
+  const q = raw.dataQuality
 
-  if (raw.dataQuality.duplicateCount > 0) {
-    const dupeRatio = raw.dataQuality.duplicateCount / Math.max(raw.dataQuality.totalRecordsSampled, 1)
-    if (dupeRatio > 0.05) {
-      const p = Math.min(Math.round(dupeRatio * 100), 30)
-      penalty += p
-      issues.push(issue('high', 'dataQuality', `${raw.dataQuality.duplicateCount} duplicate records detected`,
-        `${Math.round(dupeRatio * 100)}% duplicate rate in sampled records — degrades trust in CRM data and distorts reporting.`,
-        raw.dataQuality.duplicateCount, 'Enable duplicate detection rules and run a bulk merge job for existing duplicates.'))
-    }
-  }
+  d.check('Duplicate records', [q.duplicateCount, q.totalRecordsSampled] as const, (dupes, sampled) => {
+    if (dupes <= 0) return 0
+    const dupeRatio = dupes / Math.max(sampled, 1)
+    if (dupeRatio <= 0.05) return 0
+    d.add(issue('high', 'dataQuality', `${dupes} duplicate records detected`,
+      `${Math.round(dupeRatio * 100)}% duplicate rate in sampled records — degrades trust in CRM data and distorts reporting.`,
+      dupes, 'Enable duplicate detection rules and run a bulk merge job for existing duplicates.'))
+    return Math.min(Math.round(dupeRatio * 100), 30)
+  })
 
-  if (raw.dataQuality.incompleteRequiredFields > 10) {
-    const p = Math.min(raw.dataQuality.incompleteRequiredFields, 25)
-    penalty += p
-    issues.push(issue('medium', 'dataQuality', `${raw.dataQuality.incompleteRequiredFields}% of records have incomplete required fields`,
+  d.check('Required field completeness', [q.incompleteRequiredFields] as const, (incompletePct) => {
+    if (incompletePct <= 10) return 0
+    d.add(issue('medium', 'dataQuality', `${incompletePct}% of records have incomplete required fields`,
       'Incomplete records break downstream automation triggers and reduce AI-readable signal quality.'))
-  }
+    return Math.min(incompletePct, 25)
+  })
 
-  return { score: clamp(100 - penalty), label: 'Data quality', issues }
+  return d.result()
 }
 
 // ─── Security posture ─────────────────────────────────────────────────────────
 
 function scoreSecurity(raw: RawHealthPayload): DimensionScore {
-  const issues: Issue[] = []
-  let penalty = 0
+  const d = new Dimension('Security posture')
+  const s = raw.security
 
-  if (raw.security.dormantAdmins > 0) {
-    penalty += raw.security.dormantAdmins * 8
-    issues.push(issue('critical', 'security', `${raw.security.dormantAdmins} dormant admin accounts`,
+  d.check('Dormant admins', [s.dormantAdmins] as const, (dormant) => {
+    if (dormant <= 0) return 0
+    d.add(issue('critical', 'security', `${dormant} dormant admin accounts`,
       'Admin accounts with no activity in 90+ days are a standing attack surface.',
-      raw.security.dormantAdmins, 'Disable or downgrade accounts. Enforce quarterly access reviews.'))
-  }
+      dormant, 'Disable or downgrade accounts. Enforce quarterly access reviews.'))
+    return dormant * 8
+  })
 
-  const adminRatio = raw.security.adminUsers / Math.max(raw.security.totalUsers, 1)
-  if (adminRatio > 0.1 && raw.security.adminUsers > 3) {
-    const p = Math.min(Math.round(adminRatio * 50), 20)
-    penalty += p
-    issues.push(issue('high', 'security', `${raw.security.adminUsers} users with System Administrator role`,
+  d.check('Admin ratio', [s.adminUsers, s.totalUsers] as const, (admins, total) => {
+    const adminRatio = admins / Math.max(total, 1)
+    if (adminRatio <= 0.1 || admins <= 3) return 0
+    d.add(issue('high', 'security', `${admins} users with System Administrator role`,
       `${Math.round(adminRatio * 100)}% of users are admins. Principle of least privilege is not being enforced.`,
-      raw.security.adminUsers, 'Create custom security roles scoped to actual job functions.'))
-  }
+      admins, 'Create custom security roles scoped to actual job functions.'))
+    return Math.min(Math.round(adminRatio * 50), 20)
+  })
 
-  if (!raw.security.auditLogEnabled) {
-    penalty += 15
-    issues.push(issue('high', 'security', 'Audit logging is disabled',
+  d.check('Audit logging', [s.auditLogEnabled] as const, (enabled) => {
+    if (enabled) return 0
+    d.add(issue('high', 'security', 'Audit logging is disabled',
       'Without audit logs you have no forensic trail for data changes — a compliance risk in regulated industries.', undefined,
       'Enable audit logging in System Settings > Auditing.'))
-  }
+    return 15
+  })
 
-  return { score: clamp(100 - penalty), label: 'Security posture', issues }
+  return d.result()
 }
 
 // ─── Adoption health ──────────────────────────────────────────────────────────
 
 function scoreAdoption(raw: RawHealthPayload): DimensionScore {
-  const issues: Issue[] = []
-  let penalty = 0
+  const d = new Dimension('Adoption health')
+  const a = raw.adoption
 
-  const activeRatio = raw.adoption.monthlyActiveUsers / Math.max(raw.adoption.totalLicensedUsers, 1)
-  if (activeRatio < 0.6) {
-    const p = Math.round((1 - activeRatio) * 40)
-    penalty += p
-    issues.push(issue('high', 'adoption', `Only ${Math.round(activeRatio * 100)}% of licensed users are active`,
+  d.check('Active vs licensed users', [a.monthlyActiveUsers, a.totalLicensedUsers] as const, (active, licensed) => {
+    const activeRatio = active / Math.max(licensed, 1)
+    if (activeRatio >= 0.6) return 0
+    d.add(issue('high', 'adoption', `Only ${Math.round(activeRatio * 100)}% of licensed users are active`,
       'Low adoption means you are paying for licenses that aren\'t delivering value.',
-      raw.adoption.totalLicensedUsers - raw.adoption.monthlyActiveUsers,
+      licensed - active,
       'Identify inactive users, gather feedback, and drive adoption through training or role-specific UX improvements.'))
-  }
+    return Math.round((1 - activeRatio) * 40)
+  })
 
-  if (raw.adoption.featureUtilisationPct < 40) {
-    penalty += 10
-    issues.push(issue('medium', 'adoption', `Feature utilisation at ${raw.adoption.featureUtilisationPct}%`,
+  d.check('Feature utilisation', [a.featureUtilisationPct] as const, (pct) => {
+    if (pct >= 40) return 0
+    d.add(issue('medium', 'adoption', `Feature utilisation at ${pct}%`,
       'Key platform capabilities are unused — the org is not getting ROI from its CRM investment.'))
-  }
+    return 10
+  })
 
-  return { score: clamp(100 - penalty), label: 'Adoption health', issues }
+  return d.result()
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
