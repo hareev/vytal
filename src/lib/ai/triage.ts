@@ -60,6 +60,7 @@ function toRequest(scored: ScoredHealthPayload) {
       dataQuality: dim(dims.dataQuality),
       security: dim(dims.security),
       adoption: dim(dims.adoption),
+      processFit: dim(dims.processFit),
     },
   }
 }
