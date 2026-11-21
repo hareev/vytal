@@ -891,12 +891,12 @@
 
       <div class="hero-stats">
         <div class="stat-item">
-          <div class="stat-number">5</div>
+          <div class="stat-number">6</div>
           <div class="stat-label">Scoring dimensions</div>
         </div>
         <div class="stat-item">
-          <div class="stat-number">4</div>
-          <div class="stat-label">CRM platforms</div>
+          <div class="stat-number">2</div>
+          <div class="stat-label">CRMs scanned today</div>
         </div>
         <div class="stat-item">
           <div class="stat-number">4+</div>
@@ -1059,12 +1059,14 @@
           <span class="module-badge badge-live">Live</span>
           <div class="module-icon">🩺</div>
           <h3>Vytal Scan</h3>
-          <p>Connect any CRM org and get an AI-powered diagnostic report. Five scoring dimensions,
-             weighted penalty analysis, and Claude-generated remediation playbooks — delivered in seconds.</p>
+          <p>Scan a Dynamics 365 org from the app, or a Salesforce org from the command line, and get a scored
+             health report. Six scoring dimensions, including process fit from real deal history, plus
+             Claude-generated remediation advice. Anything Vytal can't measure is shown as not measured, never as healthy.</p>
           <div class="module-tags">
             <span class="tag">AI Scoring</span>
             <span class="tag">D365</span>
-            <span class="tag">Salesforce</span>
+            <span class="tag">Salesforce CLI</span>
+            <span class="tag">Process Fit</span>
             <span class="tag">Claude API</span>
           </div>
         </div>
@@ -1449,39 +1451,52 @@
           <span class="label">Vytal Scan</span>
           <h2>A full-body scan for your CRM org</h2>
           <p>Most CRM audits are manual, expensive, and happen once a year. Vytal Scan
-             runs a programmatic deep scan in seconds — surfacing issues that would take a
-             consultant weeks to find.</p>
+             runs a programmatic, read-only scan of your org and shows what it found, what it
+             scored, and what it could not measure.</p>
 
           <ul class="pipeline-list">
             <li class="pipeline-step">
               <span class="step-num">1</span>
               <div class="step-body">
                 <strong>Connect</strong>
-                <span>OAuth2 or token-based connection to your CRM org</span>
+                <span>Sign in to Dynamics 365 from the app, or reuse your Salesforce CLI login. No Connected App needed.</span>
               </div>
             </li>
             <li class="pipeline-step">
               <span class="step-num">2</span>
               <div class="step-body">
                 <strong>Fetch</strong>
-                <span>Parallel API calls pull schema, flows, users, and security config</span>
+                <span>Read-only API calls pull schema, flows, users, security config, and deal stage history</span>
               </div>
             </li>
             <li class="pipeline-step">
               <span class="step-num">3</span>
               <div class="step-body">
                 <strong>Score</strong>
-                <span>5-dimension penalty model produces a 0–100 composite score</span>
+                <span>6-dimension penalty model produces a 0–100 score from the checks it could measure. The rest are listed as not measured.</span>
               </div>
             </li>
             <li class="pipeline-step">
               <span class="step-num">4</span>
               <div class="step-body">
                 <strong>Diagnose</strong>
-                <span>Claude analyzes the payload and generates a prioritized action plan</span>
+                <span>Claude, called from the Vytal server, turns the scores into a prioritized action plan</span>
+              </div>
+            </li>
+            <li class="pipeline-step">
+              <span class="step-num">5</span>
+              <div class="step-body">
+                <strong>Evidence</strong>
+                <span>The Salesforce scan writes a JSON evidence file: the query behind every metric, sample record IDs per finding, and what was not measured and why</span>
               </div>
             </li>
           </ul>
+
+          <div style="margin:0 0 1.5rem;padding:1rem 1.25rem;background:var(--bg-card);border:1px solid var(--bg-border);border-radius:var(--radius);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.8rem;line-height:1.7;color:var(--text-muted);overflow-x:auto;">
+            <div style="color:var(--text-dim);"># Salesforce, from the command line</div>
+            <div>sf org login web --alias my-org</div>
+            <div>npm run scan -- salesforce --target-org my-org --out reports</div>
+          </div>
 
           <div class="ai-badge">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1494,10 +1509,10 @@
         <div class="fade-in fade-in-delay-2">
           <div class="scores-panel" id="scores-panel">
             <div class="scores-header">
-              <span class="scores-title">Health Score — Contoso D365 Org</span>
+              <span class="scores-title">Sample Health Score · Salesforce Org</span>
               <div class="overall-score">
-                <div class="overall-num">74</div>
-                <div class="overall-label">/ 100 · Good</div>
+                <div class="overall-num">66</div>
+                <div class="overall-label">/ 100 · Watch</div>
               </div>
             </div>
 
@@ -1524,20 +1539,20 @@
             <div class="score-row">
               <div class="score-meta">
                 <span class="score-name">Data Quality</span>
-                <span class="score-val" style="color:#22c55e;">82</span>
+                <span class="score-val" style="color:var(--text-dim);font-size:0.75rem;">Not measured</span>
               </div>
               <div class="score-bar-bg">
-                <div class="score-bar-fill" data-width="82" style="--bar-color:#22c55e;"></div>
+                <div class="score-bar-fill" data-width="0" style="--bar-color:var(--text-dim);"></div>
               </div>
             </div>
 
             <div class="score-row">
               <div class="score-meta">
                 <span class="score-name">Security</span>
-                <span class="score-val" style="color:#22c55e;">91</span>
+                <span class="score-val" style="color:#22c55e;">81</span>
               </div>
               <div class="score-bar-bg">
-                <div class="score-bar-fill" data-width="91" style="--bar-color:#22c55e;"></div>
+                <div class="score-bar-fill" data-width="81" style="--bar-color:#22c55e;"></div>
               </div>
             </div>
 
@@ -1551,20 +1566,30 @@
               </div>
             </div>
 
+            <div class="score-row">
+              <div class="score-meta">
+                <span class="score-name">Process Fit</span>
+                <span class="score-val" style="color:#f59e0b;">62</span>
+              </div>
+              <div class="score-bar-bg">
+                <div class="score-bar-fill" data-width="62" style="--bar-color:#f59e0b;"></div>
+              </div>
+            </div>
+
             <div style="margin-top:1.75rem; padding-top:1.25rem; border-top:1px solid var(--bg-border);">
               <div style="font-size:0.78rem; color:var(--text-dim); margin-bottom:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;">AI Triage — Top Findings</div>
               <div style="display:flex;flex-direction:column;gap:0.6rem;">
                 <div style="display:flex;gap:8px;align-items:flex-start;">
                   <span style="color:#ef4444;font-size:0.8rem;margin-top:2px;flex-shrink:0;">●</span>
-                  <span style="font-size:0.82rem;color:var(--text-muted);">3 circular automation flows detected in Opportunity stage transitions</span>
+                  <span style="font-size:0.82rem;color:var(--text-muted);">34% of won deals skipped a usual stage in the sales process</span>
                 </div>
                 <div style="display:flex;gap:8px;align-items:flex-start;">
                   <span style="color:#f59e0b;font-size:0.8rem;margin-top:2px;flex-shrink:0;">●</span>
-                  <span style="font-size:0.82rem;color:var(--text-muted);">142 custom entities exceed recommended naming convention</span>
+                  <span style="font-size:0.82rem;color:var(--text-muted);">2 dormant admin accounts with no login in 90 days</span>
                 </div>
                 <div style="display:flex;gap:8px;align-items:flex-start;">
-                  <span style="color:#22c55e;font-size:0.8rem;margin-top:2px;flex-shrink:0;">●</span>
-                  <span style="font-size:0.82rem;color:var(--text-muted);">Security baseline strong — audit logging enabled, MFA enforced</span>
+                  <span style="color:var(--text-dim);font-size:0.8rem;margin-top:2px;flex-shrink:0;">●</span>
+                  <span style="font-size:0.82rem;color:var(--text-muted);">Data quality not measured yet, so it is left out of the score</span>
                 </div>
               </div>
             </div>
@@ -1575,40 +1600,50 @@
       <!-- Scoring dimensions table -->
       <div style="margin-top:4rem;">
         <div class="section-header fade-in" style="margin-bottom:2rem;">
-          <h3 style="font-size:1.25rem;">The 5-Dimension Scoring Model</h3>
+          <h3 style="font-size:1.25rem;">The 6-Dimension Scoring Model</h3>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;" class="fade-in">
           <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
             <div style="font-size:1.5rem;margin-bottom:0.75rem;">🏗️</div>
             <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Schema Hygiene</div>
-            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">25% weight</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">18.75% weight</div>
             <div style="font-size:0.8rem;color:var(--text-muted);">Custom entity ratio, naming violations, deprecated fields</div>
           </div>
           <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
             <div style="font-size:1.5rem;margin-bottom:0.75rem;">⚙️</div>
             <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Automation Complexity</div>
-            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">25% weight</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">18.75% weight</div>
             <div style="font-size:0.8rem;color:var(--text-muted);">Circular dependencies, inactive flows, missing error handling</div>
           </div>
           <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
             <div style="font-size:1.5rem;margin-bottom:0.75rem;">📋</div>
             <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Data Quality</div>
-            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">20% weight</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">15% weight</div>
             <div style="font-size:0.8rem;color:var(--text-muted);">Duplicate rate, incomplete required fields, stale records</div>
           </div>
           <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
             <div style="font-size:1.5rem;margin-bottom:0.75rem;">🔒</div>
             <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Security</div>
-            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">20% weight</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">15% weight</div>
             <div style="font-size:0.8rem;color:var(--text-muted);">Dormant admins, admin ratio, MFA status, audit logging</div>
           </div>
           <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
             <div style="font-size:1.5rem;margin-bottom:0.75rem;">👥</div>
             <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">User Adoption</div>
-            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">10% weight</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">7.5% weight</div>
             <div style="font-size:0.8rem;color:var(--text-muted);">Active user ratio, feature utilization, login frequency</div>
           </div>
+          <div style="background:var(--bg);border:1px solid var(--bg-border-2);border-radius:var(--radius);padding:1.5rem;">
+            <div style="font-size:1.5rem;margin-bottom:0.75rem;">🧭</div>
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:0.25rem;">Process Fit</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.75rem;">25% weight</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);">Skipped stages, backward moves, deals entered already closed</div>
+          </div>
         </div>
+        <p class="fade-in" style="margin-top:1.25rem;font-size:0.85rem;color:var(--text-dim);max-width:720px;">
+          Weights apply to measured dimensions only. When process fit is not measured (Dynamics 365 today,
+          or a Salesforce org with too little deal history), the other five keep their 25 : 25 : 20 : 20 : 10 split.
+        </p>
       </div>
     </div>
   </section>
@@ -1628,7 +1663,7 @@
           <div class="compat-logo" style="background:rgba(0,120,212,0.15);border:1px solid rgba(0,120,212,0.25);color:#2563EB;font-size:1.1rem;">D365</div>
           <div>
             <div class="compat-name">Dynamics 365</div>
-            <div class="compat-desc">Full Dataverse Web API v4 (OData) integration. Schema, flows, security, and user data.</div>
+            <div class="compat-desc">Dataverse Web API v4 (OData), scanned from the app. Entities, cloud and desktop flows, users, admins, licences, and audit settings.</div>
           </div>
           <span class="compat-status status-live">Live</span>
         </div>
@@ -1637,9 +1672,9 @@
           <div class="compat-logo" style="background:rgba(0,161,224,0.12);border:1px solid rgba(0,161,224,0.2);color:#38bdf8;font-size:1rem;">SF</div>
           <div>
             <div class="compat-name">Salesforce</div>
-            <div class="compat-desc">REST API + Metadata API adapter. Objects, flows, profiles, and usage analytics.</div>
+            <div class="compat-desc">Read-only command-line scan using your Salesforce CLI login. Objects, fields, flows, admins, logins, setup changes, Security Health Check, and process fit from Opportunity stage history.</div>
           </div>
-          <span class="compat-status status-beta">In progress</span>
+          <span class="compat-status status-beta">First slice</span>
         </div>
 
         <div class="compat-card fade-in fade-in-delay-3">
@@ -1744,7 +1779,7 @@
       <ul class="footer-links">
         <li><a href="https://github.com/hareev/vytal" target="_blank" rel="noopener noreferrer">GitHub</a></li>
         <li><a href="https://github.com/hareev/vytal/issues" target="_blank" rel="noopener noreferrer">Issues</a></li>
-        <li><a href="https://github.com/hareev/vytal/blob/main/CLAUDE.md" target="_blank" rel="noopener noreferrer">Docs</a></li>
+        <li><a href="https://github.com/hareev/vytal/blob/main/README.md" target="_blank" rel="noopener noreferrer">Docs</a></li>
       </ul>
 
       <span class="footer-copy">v0.3.0 · MIT License · 2025</span>
