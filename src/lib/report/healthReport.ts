@@ -1,4 +1,5 @@
 import type { AIDiagnosis, Issue, IssueSeverity, RawHealthPayload, ScoredHealthPayload } from '@/types/health'
+import { DIMENSION_WEIGHTS } from '@/lib/scoring/engine'
 
 // ─── Client health report ─────────────────────────────────────────────────────
 //
@@ -13,15 +14,10 @@ import type { AIDiagnosis, Issue, IssueSeverity, RawHealthPayload, ScoredHealthP
 
 type DimensionKey = keyof ScoredHealthPayload['dimensions']
 
-const DIMENSION_ORDER: DimensionKey[] = ['schema', 'automation', 'dataQuality', 'security', 'adoption']
+const DIMENSION_ORDER: DimensionKey[] = ['schema', 'automation', 'dataQuality', 'security', 'adoption', 'processFit']
 
-const DIMENSION_WEIGHTS: Record<DimensionKey, number> = {
-  schema: 0.25,
-  automation: 0.25,
-  dataQuality: 0.20,
-  security: 0.20,
-  adoption: 0.10,
-}
+// Weights come from the scoring engine so the report can never disagree with the score.
+const fmtWeight = (w: number) => `${Number((w * 100).toFixed(2))}%`
 
 const SEVERITY_ORDER: IssueSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 
@@ -37,7 +33,7 @@ const PLATFORM_NAMES: Record<string, string> = {
   custom: 'Custom CRM',
 }
 
-const METRIC_LABELS: { [D in keyof Omit<RawHealthPayload, 'connection'>]: Record<keyof RawHealthPayload[D], string> } = {
+const METRIC_LABELS: { [D in keyof Omit<RawHealthPayload, 'connection'>]-?: Record<keyof NonNullable<RawHealthPayload[D]>, string> } = {
   schema: {
     totalEntities: 'Total entities / objects',
     customEntities: 'Custom entities / objects',
@@ -77,6 +73,13 @@ const METRIC_LABELS: { [D in keyof Omit<RawHealthPayload, 'connection'>]: Record
     featureUtilisationPct: 'Feature utilisation (%)',
     automationsPerActiveUser: 'Automations per active user',
     recentCustomisations30d: 'Customisations in the last 30 days',
+  },
+  processFit: {
+    closedDealsAnalysed: 'Closed deals analysed (last 365 days)',
+    wonDealsAnalysed: 'Won deals analysed',
+    skippedStageDeals: 'Won deals that skipped a usual stage',
+    backwardMoveDeals: 'Deals that moved back a stage',
+    createdClosedDeals: 'Deals entered already closed',
   },
 }
 
@@ -199,7 +202,7 @@ export function buildHealthReportHtml(
             return `<tr>
               <td>${esc(d.label)}</td>
               <td class="num"><span class="pill ${scoreClass(d.score)}">${d.score ?? 'Not measured'}</span></td>
-              <td class="num">${Math.round(DIMENSION_WEIGHTS[key] * 100)}%</td>
+              <td class="num">${fmtWeight(DIMENSION_WEIGHTS[key])}</td>
               <td class="num">${d.checksMeasured} of ${d.checksTotal}</td>
               <td class="muted">${d.notMeasured.length ? esc(d.notMeasured.join(', ')) : '—'}</td>
             </tr>`
@@ -229,7 +232,7 @@ export function buildHealthReportHtml(
     section('method', `
       <h2>How this scan works</h2>
       <ul class="method">
-        <li>Vytal read metadata and counts from the org through ${esc(platform)}'s API, using read-only queries. It did not change anything in the org.</li>
+        <li>Vytal read metadata and counts from the org through ${esc(platform)}'s API, using read-only queries. It did not change anything in the org.${scored.raw.processFit?.closedDealsAnalysed != null ? ' For process fit it also read the stage history of closed deals, keeping only stage names and record IDs.' : ''}</li>
         <li>Each area starts at 100 and loses points for each issue found. A check runs only when every value it needs was measured; a check that could not be measured is skipped and listed, not scored as healthy.</li>
         <li>The overall score is the weighted average of the areas that were measured (weights shown above), re-weighted across those areas. An area with no measured checks has no score.</li>
         ${diagnosis ? '<li>The AI assessment was generated from the scores, check coverage and findings only. No records from the org were sent to the AI model.</li>' : ''}
@@ -243,7 +246,7 @@ export function buildHealthReportHtml(
         <h3>${esc(scored.dimensions[dim].label)}</h3>
         <table class="values"><tbody>
           ${Object.entries(METRIC_LABELS[dim]).map(([field, label]) => {
-            const value = (scored.raw[dim] as Record<string, number | boolean | null>)[field]
+            const value = ((scored.raw[dim] ?? {}) as Record<string, number | boolean | null>)[field]
             return `<tr><td>${esc(label)}</td><td class="num ${value === null || value === undefined ? 'muted' : ''}">${esc(fmtValue(value))}</td></tr>`
           }).join('')}
         </tbody></table>`).join('')}`),
