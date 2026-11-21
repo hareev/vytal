@@ -120,8 +120,10 @@ vytal/
     │   │   └── index.ts           # Registry + factory
     │   ├── scoring/
     │   │   └── engine.ts          # Platform-agnostic health scoring
+    │   ├── report/
+    │   │   └── healthReport.ts    # Client report (HTML) and evidence (JSON) export
     │   └── ai/
-    │       └── triage.ts          # Claude API → structured diagnosis
+    │       └── triage.ts          # Calls the server for the AI diagnosis
     ├── hooks/
     │   ├── useAuthStore.ts        # Login, register, logout, session restore
     │   ├── useCrmStore.ts         # Contacts, deals, pipelines, activities
@@ -297,6 +299,17 @@ Process fit needs at least 20 closed deals with stage history (and 10 won deals 
 - Sales process (Opportunity) first; Service (Case) process fit comes later.
 - Standalone: no Org Check import. Org Check stays the benchmark for metadata hygiene, and Vytal focuses on process fit and a cross-CRM score.
 - Process fit carries 25% of the overall score when measured.
+
+Checks that a scan could not measure are reported as "not measured" and left out of the score; the overall score is weighted over the dimensions that were measured.
+
+### Exporting a client report
+
+After a scan, the dashboard has two export buttons:
+
+- **Export report** downloads a self-contained HTML report: summary and score, check coverage, scores by area, findings with suggested fixes, the AI recommendations (when ready), how the scan works, and an appendix of every measured value. Open it in a browser and print or save as PDF to share.
+- **Evidence (JSON)** downloads the same scan as data: measured values, scores, weights, issues and coverage.
+
+Both files are built in the browser from the scan on screen; nothing is uploaded.
 
 ### Adding a new CRM connector
 

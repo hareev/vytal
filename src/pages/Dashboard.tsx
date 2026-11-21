@@ -6,6 +6,7 @@ import { ScoreOverview } from '@/components/dashboard/ScoreOverview'
 import { IssueList } from '@/components/dashboard/IssueList'
 import { AIDiagnosisPanel } from '@/components/dashboard/AIDiagnosisPanel'
 import { OrgSnapshot } from '@/components/dashboard/OrgSnapshot'
+import { ExportReportButtons } from '@/components/dashboard/ExportReportButtons'
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -50,6 +51,7 @@ export function Dashboard() {
               Scanned {lastScanAt.toLocaleTimeString()}
             </span>
           )}
+          <ExportReportButtons scored={healthData} diagnosis={diagnosis} />
           <button onClick={() => scan()} disabled={isScanning} style={{ fontSize: '12px', padding: '5px 10px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}>
             {isScanning ? 'Scanning…' : 'Re-scan'}
           </button>

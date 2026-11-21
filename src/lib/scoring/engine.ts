@@ -25,6 +25,13 @@ const WEIGHTS = {
   processFit: 100,
 } as const
 
+const WEIGHT_TOTAL = Object.values(WEIGHTS).reduce((a, b) => a + b, 0)
+
+/** Each dimension's share of the overall score when every dimension is measured (sums to 1). */
+export const DIMENSION_WEIGHTS: Record<keyof typeof WEIGHTS, number> = Object.fromEntries(
+  Object.entries(WEIGHTS).map(([k, w]) => [k, w / WEIGHT_TOTAL]),
+) as Record<keyof typeof WEIGHTS, number>
+
 export function scoreHealthPayload(raw: RawHealthPayload): ScoredHealthPayload {
   const dimensions = {
     schema: scoreSchema(raw),
