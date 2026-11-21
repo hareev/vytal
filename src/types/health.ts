@@ -67,6 +67,18 @@ export interface RawHealthPayload {
     automationsPerActiveUser: Measured<number>
     recentCustomisations30d: Measured<number>
   }
+
+  // Process fit: does the process as built match how records actually move?
+  // Read from record history, not configuration. Optional so connectors that
+  // cannot read it yet (Dynamics 365 today) can leave it out entirely; a
+  // missing block scores as "not measured", never as healthy.
+  processFit?: {
+    closedDealsAnalysed: Measured<number>   // closed deals with stage history in the window
+    wonDealsAnalysed: Measured<number>      // won deals with a real stage path (not created already closed)
+    skippedStageDeals: Measured<number>     // won deals that missed a stage most won deals pass through
+    backwardMoveDeals: Measured<number>     // deals that moved back to an earlier open stage
+    createdClosedDeals: Measured<number>    // deals whose first recorded stage was already closed
+  }
 }
 
 // ─── Scored payload — produced by the scoring engine ─────────────────────────
@@ -93,6 +105,7 @@ export interface ScoredHealthPayload {
     dataQuality: DimensionScore
     security: DimensionScore
     adoption: DimensionScore
+    processFit: DimensionScore
   }
   scannedAt: Date
 }

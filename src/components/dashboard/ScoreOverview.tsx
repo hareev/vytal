@@ -5,7 +5,7 @@ interface Props {
 }
 
 const DIMENSION_ORDER: Array<keyof ScoredHealthPayload['dimensions']> = [
-  'schema', 'automation', 'dataQuality', 'security', 'adoption'
+  'schema', 'automation', 'dataQuality', 'security', 'adoption', 'processFit'
 ]
 
 function scoreColor(score: number | null): string {
