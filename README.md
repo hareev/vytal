@@ -227,6 +227,9 @@ All tables include `org_id` for multi-tenancy. Run `npm run db:studio` to browse
 | `npm run build` | Type-check + Vite production build |
 | `npm run type-check` | `tsc --noEmit` (frontend) |
 | `npm run type-check:api` | `tsc --noEmit` (server) |
+| `npm run type-check:cli` | Type-check the CLI, Salesforce scan and tests |
+| `npm run scan -- salesforce --target-org <alias>` | Read-only Salesforce health scan (see below) |
+| `npm test` | Run the tests (`node:test`, no live org needed) |
 | `npm run db:push` | Push Drizzle schema to Neon |
 | `npm run db:generate` | Generate migration files |
 | `npm run db:studio` | Open Drizzle Studio |
@@ -242,7 +245,7 @@ The original Vytal capability: connect an external CRM, score its health, and ge
 | Platform | Status |
 |---|---|
 | Dynamics 365 / Dataverse | ✅ Implemented |
-| Salesforce | 🔜 Planned |
+| Salesforce | 🧪 First slice, command line only (`npm run scan`) |
 | HubSpot | 🔜 Planned |
 | Zoho CRM | 📋 Planned |
 | SugarCRM | 📋 Planned |
@@ -254,11 +257,48 @@ The original Vytal capability: connect an external CRM, score its health, and ge
 
 | Dimension | Weight | Measures |
 |---|---|---|
-| Schema hygiene | 25% | Unused fields/entities, naming violations, deprecated objects |
-| Automation complexity | 25% | Circular dependencies, nesting depth, missing error handling |
-| Data quality | 20% | Duplicates, incomplete required fields, stale records |
-| Security posture | 20% | Over-privileged roles, dormant admins, audit log gaps |
-| Adoption health | 10% | Active user ratios, feature utilisation |
+| Schema hygiene | 18.75% | Unused fields/entities, naming violations, deprecated objects |
+| Automation complexity | 18.75% | Circular dependencies, nesting depth, missing error handling |
+| Data quality | 15% | Duplicates, incomplete required fields, stale records |
+| Security posture | 15% | Over-privileged roles, dormant admins, audit log gaps |
+| Adoption health | 7.5% | Active user ratios, feature utilisation |
+| Process fit | 25% | Whether deals follow the sales process as built: skipped stages, backward moves, deals entered already closed |
+
+Weights apply to measured dimensions only and are renormalised. When process fit is not measured (Dynamics 365 today, or a Salesforce org with too little deal history), the other five keep their original 25 : 25 : 20 : 20 : 10 split, so those scores are unchanged.
+
+### Salesforce scan (command line)
+
+The first Salesforce slice runs from the command line and reuses your Salesforce CLI login, so no Connected App is needed.
+
+```bash
+sf org login web --alias my-org          # once, in your browser
+npm run scan -- salesforce --target-org my-org --out reports
+```
+
+It prints a summary and writes `vytal-salesforce-<orgId>-<time>.json`: the scored result, the source query behind every metric, up to five sample record IDs per finding, and a list of what was not measured and why. The scan only sends GET requests and never changes the org. The file holds counts, setup names, stage names and record IDs, never record contents or the access token. Add `--json` to print the whole file instead of the summary.
+
+**Permissions the scanning user needs:** API Enabled, View Setup and Configuration, and read access to Opportunity and its stage history. A permission that is missing only leaves its own metrics as "not measured".
+
+**What it measures today**
+
+| Area | Metrics | Source |
+|---|---|---|
+| Schema | Objects, own custom objects, custom objects with no records, custom fields | describeGlobal, `SELECT COUNT()` per object, Tooling `CustomField` |
+| Automation | Flows (one per definition, not per version), active and inactive, active Process Builder processes | `FlowDefinitionView` |
+| Security | Users, admins (Modify All Data or Customize Application), admins not logged in for 90 days, profiles and permission sets with Modify or View All Data, field history on Account and Opportunity | `User`, `PermissionSetAssignment`, Tooling `FieldDefinition` |
+| Adoption | CRM-licensed users, users active in 30 days, flows per active user, setup changes in 30 days | `User.LastLoginDate`, `SetupAuditTrail` |
+| Process fit | Closed deals in the last 365 days checked against the stages they actually passed through | `OpportunityStage`, `OpportunityHistory` |
+| Reported, not scored | Salesforce Security Health Check score and high-risk settings, org limits at 80% or more, licence use | Tooling `SecurityHealthCheck`, `/limits`, `UserLicense` |
+
+Process fit needs at least 20 closed deals with stage history (and 10 won deals for stage skipping); below that it reports "not measured" rather than guessing. The "usual path" is the open stages at least half of won deals pass through, so orgs with several sales processes are not flagged for stages their deals never use.
+
+**Not measured yet:** unused fields, naming rules, deprecated objects, flow nesting and error handling, all data quality checks, MFA, feature use, Workflow Rules. Each shows as "not measured" in the score and the evidence file.
+
+**Defaults chosen for the plan's open questions** (easy to change):
+- Command line first; a server route and MCP tool can reuse `core/salesforce/` later.
+- Sales process (Opportunity) first; Service (Case) process fit comes later.
+- Standalone: no Org Check import. Org Check stays the benchmark for metadata hygiene, and Vytal focuses on process fit and a cross-CRM score.
+- Process fit carries 25% of the overall score when measured.
 
 Checks that a scan could not measure are reported as "not measured" and left out of the score; the overall score is weighted over the dimensions that were measured.
 

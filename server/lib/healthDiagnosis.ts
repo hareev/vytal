@@ -7,7 +7,7 @@
 
 import { z } from 'zod';
 
-const dimensionKey = z.enum(['schema', 'automation', 'dataQuality', 'security', 'adoption']);
+const dimensionKey = z.enum(['schema', 'automation', 'dataQuality', 'security', 'adoption', 'processFit']);
 
 const issueSchema = z.object({
   severity: z.enum(['critical', 'high', 'medium', 'low', 'info']),
@@ -36,6 +36,8 @@ export const healthDiagnosisRequestSchema = z.object({
     dataQuality: dimensionSchema,
     security: dimensionSchema,
     adoption: dimensionSchema,
+    // Optional so older clients that send five dimensions still validate.
+    processFit: dimensionSchema.optional(),
   }),
 });
 
@@ -170,7 +172,7 @@ Return a JSON object with this exact shape:
       "rationale": "<1-2 sentences explaining why this matters and the expected impact>",
       "effort": "<low | medium | high>",
       "impact": "<low | medium | high>",
-      "dimension": "<schema | automation | dataQuality | security | adoption>"
+      "dimension": "<schema | automation | dataQuality | security | adoption | processFit>"
     }
   ]
 }

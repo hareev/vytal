@@ -1,4 +1,4 @@
-import type { RawHealthPayload, ScoredHealthPayload, DimensionScore, Issue, IssueSeverity } from '@/types/health'
+import type { RawHealthPayload, ScoredHealthPayload, DimensionScore, Issue, IssueSeverity, CRMPlatform } from '@/types/health'
 
 // ─── Scoring engine ───────────────────────────────────────────────────────────
 //
@@ -11,12 +11,18 @@ import type { RawHealthPayload, ScoredHealthPayload, DimensionScore, Issue, Issu
 // earns points. A dimension with no measured checks scores null, and the
 // overall score is weighted over measured dimensions only.
 
+// Process fit takes 25% of the overall score when it is measured. The other
+// five keep their original proportions (25 : 25 : 20 : 20 : 10), so a scan
+// that cannot measure process fit, such as Dynamics 365 today, scores exactly
+// as it did before this dimension existed. Whole-number weights keep the
+// arithmetic exact, so rounding at .5 cannot drift between versions.
 const WEIGHTS = {
-  schema: 0.25,
-  automation: 0.25,
-  dataQuality: 0.20,
-  security: 0.20,
-  adoption: 0.10,
+  schema: 75,
+  automation: 75,
+  dataQuality: 60,
+  security: 60,
+  adoption: 30,
+  processFit: 100,
 } as const
 
 export function scoreHealthPayload(raw: RawHealthPayload): ScoredHealthPayload {
@@ -26,6 +32,7 @@ export function scoreHealthPayload(raw: RawHealthPayload): ScoredHealthPayload {
     dataQuality: scoreDataQuality(raw),
     security: scoreSecurity(raw),
     adoption: scoreAdoption(raw),
+    processFit: scoreProcessFit(raw),
   }
 
   let weighted = 0
@@ -96,6 +103,16 @@ class Dimension {
   }
 }
 
+// ─── Platform wording ─────────────────────────────────────────────────────────
+//
+// Rule thresholds are shared across platforms so scores stay comparable, but
+// titles and remediation hints must name the platform's own features.
+// Dynamics 365 wording is the default and is unchanged.
+
+function byPlatform(platform: CRMPlatform, dynamics: string, salesforce: string): string {
+  return platform === 'salesforce' ? salesforce : dynamics
+}
+
 // ─── Schema hygiene ───────────────────────────────────────────────────────────
 
 function scoreSchema(raw: RawHealthPayload): DimensionScore {
@@ -115,7 +132,9 @@ function scoreSchema(raw: RawHealthPayload): DimensionScore {
     if (unused <= 0) return 0
     d.add(issue('high', 'schema', `${unused} unused custom entities`,
       'Unused entities bloat the schema, slow solution imports, and confuse developers.',
-      unused, 'Run a solution usage analysis and remove entities with no records, flows, or form references.'))
+      unused, byPlatform(raw.connection.platform,
+        'Run a solution usage analysis and remove entities with no records, flows, or form references.',
+        'Check each object with no records for references in flows, Apex and layouts (Where is this used?), then archive or delete it.')))
     return Math.min(unused * 2, 20)
   })
 
@@ -170,9 +189,16 @@ function scoreAutomation(raw: RawHealthPayload): DimensionScore {
 
   d.check('Deprecated API calls', [a.deprecatedApiCalls] as const, (deprecated) => {
     if (deprecated <= 0) return 0
-    d.add(issue('critical', 'automation', `${deprecated} deprecated API calls in flows/plugins`,
-      'These will fail when Microsoft removes the deprecated endpoint — without warning in production.',
-      deprecated, 'Update to the current Web API v9.2 endpoints.'))
+    const p = raw.connection.platform
+    d.add(issue('critical', 'automation', byPlatform(p,
+        `${deprecated} deprecated API calls in flows/plugins`,
+        `${deprecated} active Process Builder processes`),
+      byPlatform(p,
+        'These will fail when Microsoft removes the deprecated endpoint — without warning in production.',
+        'Salesforce has retired Process Builder in favour of Flow. Active processes still run but get no fixes and block a clean automation model.'),
+      deprecated, byPlatform(p,
+        'Update to the current Web API v9.2 endpoints.',
+        'Use the Migrate to Flow tool in Setup, starting with processes on high-volume objects.')))
     return 15
   })
 
@@ -222,7 +248,9 @@ function scoreSecurity(raw: RawHealthPayload): DimensionScore {
   d.check('Admin ratio', [s.adminUsers, s.totalUsers] as const, (admins, total) => {
     const adminRatio = admins / Math.max(total, 1)
     if (adminRatio <= 0.1 || admins <= 3) return 0
-    d.add(issue('high', 'security', `${admins} users with System Administrator role`,
+    d.add(issue('high', 'security', byPlatform(raw.connection.platform,
+        `${admins} users with System Administrator role`,
+        `${admins} users with Modify All Data or Customize Application`),
       `${Math.round(adminRatio * 100)}% of users are admins. Principle of least privilege is not being enforced.`,
       admins, 'Create custom security roles scoped to actual job functions.'))
     return Math.min(Math.round(adminRatio * 50), 20)
@@ -230,9 +258,14 @@ function scoreSecurity(raw: RawHealthPayload): DimensionScore {
 
   d.check('Audit logging', [s.auditLogEnabled] as const, (enabled) => {
     if (enabled) return 0
-    d.add(issue('high', 'security', 'Audit logging is disabled',
+    const p = raw.connection.platform
+    d.add(issue('high', 'security', byPlatform(p,
+        'Audit logging is disabled',
+        'No field history tracking on Account and Opportunity'),
       'Without audit logs you have no forensic trail for data changes — a compliance risk in regulated industries.', undefined,
-      'Enable audit logging in System Settings > Auditing.'))
+      byPlatform(p,
+        'Enable audit logging in System Settings > Auditing.',
+        'Turn on Field History Tracking for the key fields on Account and Opportunity (owner, stage, amount, close date).')))
     return 15
   })
 
@@ -260,6 +293,50 @@ function scoreAdoption(raw: RawHealthPayload): DimensionScore {
     d.add(issue('medium', 'adoption', `Feature utilisation at ${pct}%`,
       'Key platform capabilities are unused — the org is not getting ROI from its CRM investment.'))
     return 10
+  })
+
+  return d.result()
+}
+
+// ─── Process fit ──────────────────────────────────────────────────────────────
+//
+// Compares the sales process as built with how deals actually moved, from
+// stage history. Thresholds are a first cut and should be tuned against real
+// orgs; the connector leaves these inputs null when there are too few closed
+// deals to judge.
+
+function scoreProcessFit(raw: RawHealthPayload): DimensionScore {
+  const d = new Dimension('Process fit')
+  const f = raw.processFit ?? {
+    closedDealsAnalysed: null, wonDealsAnalysed: null, skippedStageDeals: null,
+    backwardMoveDeals: null, createdClosedDeals: null,
+  }
+
+  d.check('Stage skipping', [f.skippedStageDeals, f.wonDealsAnalysed] as const, (skipped, won) => {
+    const ratio = skipped / Math.max(won, 1)
+    if (ratio <= 0.2) return 0
+    d.add(issue('high', 'processFit', `${Math.round(ratio * 100)}% of won deals skipped a usual stage`,
+      `${skipped} of ${won} won deals never passed through a stage that most won deals go through. Either the stage does not reflect how the team sells, or deals are being pushed to closed without the work it stands for.`,
+      skipped, 'Walk through a few of these deals with the sales lead: drop or merge stages the team does not use, or make the stage meaningful with entry criteria and a Path guidance.'))
+    return Math.min(Math.round(ratio * 40), 25)
+  })
+
+  d.check('Backward stage moves', [f.backwardMoveDeals, f.closedDealsAnalysed] as const, (backward, total) => {
+    const ratio = backward / Math.max(total, 1)
+    if (ratio <= 0.15) return 0
+    d.add(issue('medium', 'processFit', `${Math.round(ratio * 100)}% of deals moved back a stage`,
+      `${backward} of ${total} closed deals went back to an earlier stage at least once. Frequent backward moves usually mean stage definitions are unclear or the order does not match the real buying process.`,
+      backward, 'Agree written exit criteria for each stage and check whether the stage order matches how customers actually buy.'))
+    return Math.min(Math.round(ratio * 30), 20)
+  })
+
+  d.check('Deals created already closed', [f.createdClosedDeals, f.closedDealsAnalysed] as const, (createdClosed, total) => {
+    const ratio = createdClosed / Math.max(total, 1)
+    if (ratio <= 0.2) return 0
+    d.add(issue('medium', 'processFit', `${Math.round(ratio * 100)}% of deals were entered already closed`,
+      `${createdClosed} of ${total} closed deals have no open stage in their history. They were logged after the fact, so the CRM is a record of outcomes, not a tool the team works deals in.`,
+      createdClosed, 'Find out which teams log deals after closing and why: missing mobile access, duplicate entry with another tool, or a pipeline nobody reviews.'))
+    return Math.min(Math.round(ratio * 30), 20)
   })
 
   return d.result()
