@@ -371,7 +371,6 @@ Planned, not built yet:
 - **Agent surface:** an MCP tool over the scan, reusing `core/`.
 - **Scan history:** trend lines and side-by-side comparison across orgs.
 - **Finish the previews:** Channel Capture, and CIM (Customer Intelligence) on top of it.
-- **Beyond CRM:** the same scan, score and evidence core applied to the wider application estate, starting with identity and cloud cost, then application portfolio, code and CMDB.
 
 ---
 
