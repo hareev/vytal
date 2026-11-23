@@ -137,7 +137,7 @@ export function Settings() {
           </p>
           <div style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', marginBottom: '12px' }}>
             <div style={{ color: 'var(--text-tertiary)', marginBottom: '4px' }}># API base URL</div>
-            <div>VITE_API_URL=http://localhost:3001</div>
+            <div>VITE_API_URL=http://localhost:3001/api</div>
             <div style={{ marginTop: '8px', color: 'var(--text-tertiary)' }}># Database (Neon Postgres)</div>
             <div>DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/vytal?sslmode=require</div>
             <div style={{ marginTop: '8px', color: 'var(--text-tertiary)' }}># Auth secret (generate a strong random string)</div>
